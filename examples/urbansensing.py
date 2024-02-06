@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
-from srds import ParameterizedDistribution
+import srds
+import random
+import numpy as np
 
 import ether.blocks.nodes as nodes
 from ether.blocks.cells import IoTComputeBox, Cloudlet, FiberToExchange, MobileConnection
@@ -8,7 +10,7 @@ from ether.core import Node, Link
 from ether.topology import Topology
 from ether.vis import draw_basic
 
-lognorm = ParameterizedDistribution.lognorm
+lognorm = srds.ParameterizedDistribution.lognorm
 
 
 def node_name(obj):
@@ -50,4 +52,8 @@ def main():
 
 
 if __name__ == '__main__':
+    SEED = 42 # Use SEED in random functions
+    random.seed(SEED)
+    srds.seed(SEED)
+    np.random.seed(SEED)
     main()
