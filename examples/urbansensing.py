@@ -5,7 +5,7 @@ import numpy as np
 
 import ether.blocks.nodes as nodes
 from ether.blocks.cells import IoTComputeBox, Cloudlet, FiberToExchange, MobileConnection
-from ether.cell import SharedLinkCell, GeoCell
+from ether.cell import GeoCell
 from ether.core import Node, Link
 from ether.topology import Topology
 from ether.vis import draw_basic
@@ -22,33 +22,52 @@ def node_name(obj):
         return str(obj)
 
 
-def main():
+def generate_topology(num_neighborhoods,
+                      num_nodes_per_neighborhood,
+                      num_racks,
+                      num_servers_per_rack,
+                      node_type=nodes.rpi4,
+                      density_params=(0.82, 2.02)):
     topology = Topology()
 
-    aot_node = IoTComputeBox(nodes=[nodes.rpi3, nodes.rpi3])
-    neighborhood = lambda size: SharedLinkCell(
-        nodes=[
-            [aot_node] * size,
-            IoTComputeBox([nodes.nuc] + ([nodes.tx2] * size * 2))
-        ],
-        shared_bandwidth=500,
-        backhaul=MobileConnection('internet_chix'))
+    def create_neighborhood(size):
+        neighborhood_nodes = []
+        for _ in range(size):
+            node = IoTComputeBox(nodes=[node_type], backhaul=MobileConnection('internet_chix'))
+            neighborhood_nodes.append(node)
+        return neighborhood_nodes
+
     city = GeoCell(
-        5, nodes=[neighborhood], density=lognorm((0.82, 2.02)))
+        num_neighborhoods,
+        nodes=create_neighborhood(num_nodes_per_neighborhood),
+        density=lognorm(density_params))
+
     cloudlet = Cloudlet(
-        5, 2, backhaul=FiberToExchange('internet_chix'))
+        num_servers_per_rack,
+        num_racks,
+        backhaul=FiberToExchange('internet_chix'))
 
     topology.add(city)
     topology.add(cloudlet)
 
-    #######################
+    return topology
+
+
+def main(num_neighborhoods=3,
+         num_nodes_per_neighborhood=5,
+         num_racks=2,
+         num_servers_per_rack=4,
+         node_type=nodes.rpi4,
+         density_params=(0.82, 2.02)):
+    topology = generate_topology(num_neighborhoods, num_nodes_per_neighborhood, num_racks, num_servers_per_rack, node_type, density_params)
 
     draw_basic(topology)
     fig = plt.gcf()
     fig.set_size_inches(18.5, 10.5)
     plt.show()  # display
 
-    print('num nodes:', len(topology.nodes))
+    num_nodes = len(topology.get_nodes())
+    print(f'num nodes: {num_nodes}')
 
 
 if __name__ == '__main__':
@@ -56,4 +75,10 @@ if __name__ == '__main__':
     random.seed(SEED)
     srds.seed(SEED)
     np.random.seed(SEED)
-    main()
+    num_neighborhoods = 3
+    num_nodes_per_neighborhood = 5
+    num_racks = 2
+    num_servers_per_rack = 4
+    node_type = nodes.rpi4
+    density_params = (0.82, 2.02)
+    main(num_neighborhoods, num_nodes_per_neighborhood, num_racks, num_servers_per_rack, node_type, density_params)
