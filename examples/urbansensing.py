@@ -8,7 +8,8 @@ from ether.blocks.cells import IoTComputeBox, Cloudlet, FiberToExchange, MobileC
 from ether.cell import GeoCell
 from ether.core import Node, Link
 from ether.topology import Topology
-from ether.vis import draw_basic
+from ether.vis import draw_basic, print_symphony_structure
+from ether.overlay import SymphonyOverlay
 
 lognorm = srds.ParameterizedDistribution.lognorm
 
@@ -61,14 +62,21 @@ def main(num_neighborhoods=3,
          density_params=(0.82, 2.02)):
     topology = generate_topology(num_neighborhoods, num_nodes_per_neighborhood, num_racks, num_servers_per_rack, node_type, density_params)
 
+    overlay_nodes = [Node(f"Node {i}") for i in range(len(topology.get_nodes()))]
+    
+    # Initialize the Symphony overlay with these nodes
+    symphony_overlay = SymphonyOverlay(overlay_nodes, seed=SEED)
+    symphony_overlay.set_links()  # This sets up the Symphony overlay links
+
     draw_basic(topology)
     fig = plt.gcf()
     fig.set_size_inches(18.5, 10.5)
     plt.show()  # display
 
     num_nodes = len(topology.get_nodes())
-    print(f'num nodes: {num_nodes}')
+    print(f'Number of Nodes: {num_nodes}')
 
+    print_symphony_structure(symphony_overlay)
 
 if __name__ == '__main__':
     SEED = 42 # Use SEED in random functions
