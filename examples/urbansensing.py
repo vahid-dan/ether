@@ -1,4 +1,4 @@
-import matplotlib.pyplot as plt
+import math
 import srds
 import random
 import numpy as np
@@ -8,8 +8,10 @@ from ether.blocks.cells import IoTComputeBox, Cloudlet, FiberToExchange, MobileC
 from ether.cell import GeoCell
 from ether.core import Node, Link
 from ether.topology import Topology
-from ether.vis import draw_basic, print_symphony_structure
+from ether.vis import visualize_symphony_structure, visualize_topology
 from ether.overlay import SymphonyOverlay
+from examples.vivaldi.util import execute_vivaldi
+
 
 lognorm = srds.ParameterizedDistribution.lognorm
 
@@ -62,21 +64,27 @@ def main(num_neighborhoods=3,
          density_params=(0.82, 2.02)):
     topology = generate_topology(num_neighborhoods, num_nodes_per_neighborhood, num_racks, num_servers_per_rack, node_type, density_params)
 
-    overlay_nodes = [Node(f"Node {i}") for i in range(len(topology.get_nodes()))]
+    # Update Vivaldi coordinates based on network interactions for all nodes
+    execute_vivaldi(topology, node_filter=lambda n: isinstance(n, Node), min_executions=300)
+
+    # Use the nodes from the topology as overlay nodes
+    overlay_nodes = topology.get_nodes()
     
+    num_nodes = len(overlay_nodes) # Number of nodes
+    max_num_links = round(math.log(num_nodes)) # Number of long-distance links per node
+
     # Initialize the Symphony overlay with these nodes
     symphony_overlay = SymphonyOverlay(overlay_nodes, seed=SEED)
-    symphony_overlay.set_links()  # This sets up the Symphony overlay links
+    symphony_overlay.set_successor_links()
+    symphony_overlay.set_long_distance_links(topology = topology, max_num_links = max_num_links, link_selection_method = 'topsis', candidate_list_size_factor = 2, weights = [1, 1], is_benefit = [False, False])
 
-    draw_basic(topology)
-    fig = plt.gcf()
-    fig.set_size_inches(18.5, 10.5)
-    plt.show()  # display
+    visualize_topology(topology)
 
-    num_nodes = len(topology.get_nodes())
     print(f'Number of Nodes: {num_nodes}')
 
-    print_symphony_structure(symphony_overlay)
+    # print_symphony_structure(symphony_overlay)
+
+    visualize_symphony_structure(topology)
 
 if __name__ == '__main__':
     SEED = 42 # Use SEED in random functions
