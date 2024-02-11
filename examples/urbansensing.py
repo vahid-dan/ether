@@ -61,7 +61,8 @@ def main(num_neighborhoods=3,
          num_racks=2,
          num_servers_per_rack=4,
          node_type=nodes.rpi4,
-         density_params=(0.82, 2.02)):
+         density_params=(0.82, 2.02),
+         metered_edge_nodes_percentage=50):
     topology = generate_topology(num_neighborhoods, num_nodes_per_neighborhood, num_racks, num_servers_per_rack, node_type, density_params)
 
     # Update Vivaldi coordinates based on network interactions for all nodes
@@ -71,20 +72,21 @@ def main(num_neighborhoods=3,
     overlay_nodes = topology.get_nodes()
     
     num_nodes = len(overlay_nodes) # Number of nodes
-    max_num_links = round(math.log(num_nodes)) # Number of long-distance links per node
+    max_num_links = round(math.log(num_nodes)) # Max number of long-distance links per node
 
     # Initialize the Symphony overlay with these nodes
     symphony_overlay = SymphonyOverlay(overlay_nodes, seed=SEED)
-    symphony_overlay.set_successor_links()
-    symphony_overlay.set_long_distance_links(topology = topology, max_num_links = max_num_links, link_selection_method = 'topsis', candidate_list_size_factor = 2, weights = [1, 1], is_benefit = [False, False])
+    symphony_overlay.assign_cell_cost(metered_edge_nodes_percentage)
+    symphony_overlay.set_successor_links()    
+    symphony_overlay.set_long_distance_links(topology=topology, max_num_links=max_num_links, link_selection_method='topsis', candidate_list_size_factor=2, weights=[1, 1], is_benefit=[False, False])
 
-    visualize_topology(topology)
+    # visualize_topology(topology)
 
-    print(f'Number of Nodes: {num_nodes}')
+    # print(f'Number of Nodes: {num_nodes}')
 
     # print_symphony_structure(symphony_overlay)
 
-    visualize_symphony_structure(topology)
+    # visualize_symphony_structure(topology)
 
 if __name__ == '__main__':
     SEED = 42 # Use SEED in random functions
@@ -97,4 +99,5 @@ if __name__ == '__main__':
     num_servers_per_rack = 4
     node_type = nodes.rpi4
     density_params = (0.82, 2.02)
-    main(num_neighborhoods, num_nodes_per_neighborhood, num_racks, num_servers_per_rack, node_type, density_params)
+    metered_edge_nodes_percentage = 50
+    main(num_neighborhoods, num_nodes_per_neighborhood, num_racks, num_servers_per_rack, node_type, density_params, metered_edge_nodes_percentage)

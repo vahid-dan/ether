@@ -1,5 +1,6 @@
 import re
 import numpy as np
+import random
 
 __size_conversions = {
     'K': 10 ** 3,
@@ -125,3 +126,30 @@ def calculate_total_cell_cost(path):
                 total_cell_cost += outgoing_traffic_cost
 
     return total_cell_cost
+
+
+# Function to assign random cell_cost for a specific percentage of the edge nodes
+def assign_cell_cost(targets, percentage):
+    # Filter targets that are rpi4 nodes
+    rpi4_targets = [target for target in targets if target.name.startswith('rpi4')]
+    
+    # Calculate number of nodes to assign random cost
+    num_random_cost = int(len(rpi4_targets) * (percentage / 100.0))
+    
+    # Randomly select nodes for random cost assignment
+    random_cost_targets = random.sample(rpi4_targets, num_random_cost)
+    
+    # Initialize dictionary to store cell costs
+    cell_costs = {}
+    
+    # Assign random cost to selected nodes and 0 to others
+    for target in targets:
+        if target in random_cost_targets:
+            cell_costs[target.name] = random.uniform(0, 1)
+        elif target.name.startswith('rpi4'):
+            cell_costs[target.name] = 0
+        else:
+            # Assign 0 or maintain current cost for non-rpi4 nodes
+            cell_costs[target.name] = 0
+    
+    return cell_costs

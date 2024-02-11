@@ -102,19 +102,16 @@ class SymphonyOverlay:
             # Check if the number of found targets is less than expected
             if len(potential_targets) < selection_size_factor * max_num_links:
                 print(f"Only found {len(potential_targets)} unique potential targets for {node}, but expected {selection_size_factor * max_num_links}.")
-
             # Apply the TOPSIS method for link selection
             shortlisted_targets_desired_size = min(len(potential_targets), candidate_list_size_factor * max_num_links)
             shortlisted_targets = potential_targets[:shortlisted_targets_desired_size]
-            print(f"{node} shortlisted_targets {shortlisted_targets}")
             if link_selection_method == 'topsis' and shortlisted_targets:
                 criteria = []
                 for target in shortlisted_targets:
-                    # Calculate latency as a criterion for TOPSIS
-                    latency = topology.latency(node, target, use_coordinates=True)
-                    # Assign cell cost based on node type
-                    cell_cost = 1 if target.name.startswith('rpi4') else 0
-                    criteria.append([latency, cell_cost])
+                    # Calculate link_latency as a criterion for TOPSIS
+                    link_latency = topology.latency(node, target, use_coordinates=True)
+                    link_cell_cost = node.cell_cost + target.cell_cost
+                    criteria.append([link_latency, link_cell_cost])
 
                 criteria_matrix = np.array(criteria)
                 # Calculate TOPSIS scores
@@ -137,7 +134,6 @@ class SymphonyOverlay:
                         target.long_distance_links.append(node) # Ensure bidirectional links
                     elif len(node.long_distance_links) >= max_num_links:
                         break
-            print(f"{node} node.long_distance_links {node.long_distance_links}")
 
 
     def find_closest_clockwise_node(self, current_node, destination_id):
@@ -202,3 +198,14 @@ class SymphonyOverlay:
 
         return path
     
+
+    def assign_cell_cost(self, percentage):
+        edge_nodes = [node for node in self.nodes if node.name.startswith('rpi4')]
+        num_random_cost = int(len(edge_nodes) * (percentage / 100.0))
+        metered_nodes = random.sample(edge_nodes, num_random_cost)
+
+        for node in self.nodes:
+            if node in metered_nodes:
+                node.cell_cost = random.uniform(0, 1)
+            else:
+                node.cell_cost = 0
