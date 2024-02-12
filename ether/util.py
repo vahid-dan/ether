@@ -2,6 +2,8 @@ import re
 import numpy as np
 import random
 
+from ether.core import Node
+
 __size_conversions = {
     'K': 10 ** 3,
     'M': 10 ** 6,
@@ -130,14 +132,14 @@ def calculate_total_cell_cost(path):
 
 # Function to assign random cell_cost for a specific percentage of the edge nodes
 def assign_cell_cost(targets, percentage):
-    # Filter targets that are rpi4 nodes
-    rpi4_targets = [target for target in targets if target.name.startswith('rpi4')]
+    # Filter targets that are edge nodes
+    edge_targets = [target for target in targets if is_edge_node(target)]
     
     # Calculate number of nodes to assign random cost
-    num_random_cost = int(len(rpi4_targets) * (percentage / 100.0))
+    num_random_cost = int(len(edge_targets) * (percentage / 100.0))
     
     # Randomly select nodes for random cost assignment
-    random_cost_targets = random.sample(rpi4_targets, num_random_cost)
+    random_cost_targets = random.sample(edge_targets, num_random_cost) if edge_targets else []
     
     # Initialize dictionary to store cell costs
     cell_costs = {}
@@ -146,17 +148,41 @@ def assign_cell_cost(targets, percentage):
     for target in targets:
         if target in random_cost_targets:
             cell_costs[target.name] = random.uniform(0, 1)
-        elif target.name.startswith('rpi4'):
+        elif is_edge_node(target):
             cell_costs[target.name] = 0
         else:
-            # Assign 0 or maintain current cost for non-rpi4 nodes
+            # Assign 0 or maintain current cost for non-edge nodes
             cell_costs[target.name] = 0
     
     return cell_costs
 
 
+def print_cell_cost(nodes):
+    for node in nodes:
+        if is_edge_node(node):
+            print(f"{node.name} is an edge node.")
+            cell_cost = getattr(node, 'cell_cost', None)
+            if cell_cost:
+                print(f"cell_cost {cell_cost}")    
+        elif is_server_node(node):
+            print(f"{node.name} is a server node.")
+
+
 def print_location_ids(nodes):
     for node in nodes:
-        location_id = getattr(node, 'location_id', None)
-        if location_id:
-            print(f"node {node}, location_id {location_id}")
+        if is_server_node(node):
+            print(f"{node.name} is a server node.")
+            location_id = getattr(node, 'location_id', None)
+            if location_id:
+                print(f"location_id {location_id}")
+        elif is_edge_node(node):
+            print(f"{node.name} is an edge node.")
+
+
+def is_server_node(node: Node) -> bool:
+    return node.labels.get('ether.edgerun.io/type') == 'server'
+
+
+def is_edge_node(node: Node) -> bool:
+    edge_types = {'sbc', 'embai'}
+    return node.labels.get('ether.edgerun.io/type') in edge_types

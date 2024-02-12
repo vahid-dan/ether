@@ -11,7 +11,7 @@ from ether.topology import Topology
 from ether.vis import visualize_symphony_structure, visualize_topology
 from ether.overlay import SymphonyOverlay
 from examples.vivaldi.util import execute_vivaldi
-from ether.util import print_location_ids
+from ether.util import print_location_ids, print_cell_cost
 
 
 lognorm = srds.ParameterizedDistribution.lognorm
@@ -103,6 +103,8 @@ def main(num_neighborhoods=3,
                                              candidate_list_size_factor=2,
                                              weights=[1, 1],
                                              is_benefit=[False, False])
+
+    print_cell_cost(overlay_nodes)
 
     print_location_ids(overlay_nodes)
 
