@@ -6,7 +6,7 @@ import math
 from typing import List
 
 from ether.core import Node
-from ether.util import harmonic_random_number, topsis
+from ether.util import harmonic_random_number, topsis, is_edge_node
 from ether.topology import Topology
 
 
@@ -199,11 +199,17 @@ class SymphonyOverlay:
         return path
     
 
-    def assign_cell_cost(self, percentage):
-        edge_nodes = [node for node in self.nodes if node.name.startswith('rpi4')]
+    def assign_cell_costs(self, percentage):
+        # Filter edge nodes using the is_edge_node function
+        edge_nodes = [node for node in self.nodes if is_edge_node(node)]
+        
+        # Calculate number of nodes to assign random cost
         num_random_cost = int(len(edge_nodes) * (percentage / 100.0))
-        metered_nodes = random.sample(edge_nodes, num_random_cost)
-
+        
+        # Randomly select nodes for random cost assignment
+        metered_nodes = random.sample(edge_nodes, num_random_cost) if edge_nodes else []
+        
+        # Assign random cost to selected nodes and 0 to others
         for node in self.nodes:
             if node in metered_nodes:
                 node.cell_cost = random.uniform(0, 1)

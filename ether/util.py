@@ -130,34 +130,7 @@ def calculate_total_cell_cost(path):
     return total_cell_cost
 
 
-# Function to assign random cell_cost for a specific percentage of the edge nodes
-def assign_cell_cost(targets, percentage):
-    # Filter targets that are edge nodes
-    edge_targets = [target for target in targets if is_edge_node(target)]
-    
-    # Calculate number of nodes to assign random cost
-    num_random_cost = int(len(edge_targets) * (percentage / 100.0))
-    
-    # Randomly select nodes for random cost assignment
-    random_cost_targets = random.sample(edge_targets, num_random_cost) if edge_targets else []
-    
-    # Initialize dictionary to store cell costs
-    cell_costs = {}
-    
-    # Assign random cost to selected nodes and 0 to others
-    for target in targets:
-        if target in random_cost_targets:
-            cell_costs[target.name] = random.uniform(0, 1)
-        elif is_edge_node(target):
-            cell_costs[target.name] = 0
-        else:
-            # Assign 0 or maintain current cost for non-edge nodes
-            cell_costs[target.name] = 0
-    
-    return cell_costs
-
-
-def print_cell_cost(nodes):
+def print_cell_costs(nodes):
     for node in nodes:
         if is_edge_node(node):
             print(f"{node.name} is an edge node.")
