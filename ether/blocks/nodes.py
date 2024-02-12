@@ -1,6 +1,6 @@
 import itertools
 from collections import defaultdict
-from typing import Dict
+from typing import Dict, Optional
 
 from ether.core import Node, Capacity
 from ether.util import parse_size_string
@@ -19,7 +19,7 @@ def create_vm_node(name=None) -> Node:
                        })
 
 
-def create_server_node(name=None) -> Node:
+def create_server_node(name=None, location_id=None) -> Node:
     name = name if name is not None else 'server_%d' % next(counters['server'])
 
     return create_node(name=name,
@@ -27,7 +27,8 @@ def create_server_node(name=None) -> Node:
                        labels={
                            'ether.edgerun.io/type': 'server',
                            'ether.edgerun.io/model': 'server'
-                       })
+                       },
+                       location_id=location_id)
 
 
 def create_rpi3_node(name=None) -> Node:
@@ -127,9 +128,9 @@ def create_nx(name=None) -> Node:
                        })
 
 
-def create_node(name: str, cpus: int, mem: str, arch: str, labels: Dict[str, str]) -> Node:
+def create_node(name: str, cpus: int, mem: str, arch: str, labels: Dict[str, str], location_id: Optional[str] = None) -> Node:
     capacity = Capacity(cpu_millis=cpus * 1000, memory=parse_size_string(mem))
-    return Node(name, capacity=capacity, arch=arch, labels=labels)
+    return Node(name=name, capacity=capacity, arch=arch, labels=labels, location_id=location_id)
 
 
 rpi3 = create_rpi3_node

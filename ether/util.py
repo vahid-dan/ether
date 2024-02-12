@@ -153,3 +153,10 @@ def assign_cell_cost(targets, percentage):
             cell_costs[target.name] = 0
     
     return cell_costs
+
+
+def print_location_ids(nodes):
+    for node in nodes:
+        location_id = getattr(node, 'location_id', None)
+        if location_id:
+            print(f"node {node}, location_id {location_id}")

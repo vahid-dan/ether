@@ -11,6 +11,7 @@ from ether.topology import Topology
 from ether.vis import visualize_symphony_structure, visualize_topology
 from ether.overlay import SymphonyOverlay
 from examples.vivaldi.util import execute_vivaldi
+from ether.util import print_location_ids
 
 
 lognorm = srds.ParameterizedDistribution.lognorm
@@ -30,8 +31,8 @@ def generate_topology(num_neighborhoods,
                       num_cloudlets,
                       num_racks,
                       num_servers_per_rack,
-                      node_type=nodes.rpi4,
-                      density_params=(0.82, 2.02)):
+                      node_type,
+                      density_params):
     topology = Topology()
 
 
@@ -45,11 +46,13 @@ def generate_topology(num_neighborhoods,
 
     def create_cloudlets(count):
         cloudlets = []
-        for _ in range(count):
+        for i in range(count):
+            location_id = str(i)
             cloudlet = Cloudlet(
                 num_servers_per_rack,
                 num_racks,
-                backhaul=FiberToExchange('internet_chix'))
+                backhaul=FiberToExchange('internet_chix'),
+                location_id=location_id)
             cloudlets.append(cloudlet)
         return cloudlets    
 
@@ -73,7 +76,13 @@ def main(num_neighborhoods=3,
          node_type=nodes.rpi4,
          density_params=(0.82, 2.02),
          metered_edge_nodes_percentage=50):
-    topology = generate_topology(num_neighborhoods, num_nodes_per_neighborhood, num_cloudlets, num_racks, num_servers_per_rack, node_type, density_params)
+    topology = generate_topology(num_neighborhoods,
+                                 num_nodes_per_neighborhood,
+                                 num_cloudlets,
+                                 num_racks,
+                                 num_servers_per_rack,
+                                 node_type,
+                                 density_params)
 
     # Update Vivaldi coordinates based on network interactions for all nodes
     execute_vivaldi(topology, node_filter=lambda n: isinstance(n, Node), min_executions=300)
@@ -88,7 +97,14 @@ def main(num_neighborhoods=3,
     symphony_overlay = SymphonyOverlay(overlay_nodes, seed=SEED)
     symphony_overlay.assign_cell_cost(metered_edge_nodes_percentage)
     symphony_overlay.set_successor_links()    
-    symphony_overlay.set_long_distance_links(topology=topology, max_num_links=max_num_links, link_selection_method='topsis', candidate_list_size_factor=2, weights=[1, 1], is_benefit=[False, False])
+    symphony_overlay.set_long_distance_links(topology=topology,
+                                             max_num_links=max_num_links,
+                                             link_selection_method='random',
+                                             candidate_list_size_factor=2,
+                                             weights=[1, 1],
+                                             is_benefit=[False, False])
+
+    print_location_ids(overlay_nodes)
 
     visualize_topology(topology)
 
@@ -111,4 +127,11 @@ if __name__ == '__main__':
     node_type = nodes.rpi4
     density_params = (0.82, 2.02)
     metered_edge_nodes_percentage = 50
-    main(num_neighborhoods, num_nodes_per_neighborhood, num_cloudlets, num_racks, num_servers_per_rack, node_type, density_params, metered_edge_nodes_percentage)
+    main(num_neighborhoods,
+         num_nodes_per_neighborhood,
+         num_cloudlets,
+         num_racks,
+         num_servers_per_rack,
+         node_type,
+         density_params,
+         metered_edge_nodes_percentage)

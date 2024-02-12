@@ -31,13 +31,17 @@ class IoTComputeBox(LANCell):
 
 
 class Cloudlet(LANCell):
-    def __init__(self, server_per_rack=5, racks=1, backhaul=None) -> None:
+    def __init__(self, server_per_rack=5, racks=1, backhaul=None, location_id=None) -> None:
+        self.location_id = location_id
         self.racks = racks
         self.server_per_rack = server_per_rack
 
         nodes = [self._create_rack] * racks
 
-        super().__init__(nodes, backhaul=backhaul)
+        self._create_identity()
+        super().__init__(nodes=[self._create_rack() for _ in range(racks)], 
+                         backhaul=backhaul, 
+                         location_id=location_id)
 
     def _create_identity(self):
         self.nr = next(counters['cloudlet'])
@@ -45,4 +49,4 @@ class Cloudlet(LANCell):
         self.switch = 'switch_%s' % self.name
 
     def _create_rack(self):
-        return LANCell([create_server_node] * self.server_per_rack, backhaul=self.switch)
+        return LANCell([create_server_node(location_id=self.location_id) for _ in range(self.server_per_rack)], backhaul=self.switch)
