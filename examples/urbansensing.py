@@ -42,16 +42,16 @@ def main(num_neighborhoods=3,
     symphony_overlay.set_successor_links()    
     symphony_overlay.set_long_distance_links(topology=topology,
                                              max_num_links=max_num_links,
-                                             link_selection_method='random',
+                                             link_selection_method='topsis',
                                              candidate_list_size_factor=2,
-                                             weights=[1, 1],
-                                             is_benefit=[False, False])
+                                             weights=[1, 1, 1],
+                                             is_benefit=[False, False, True])
 
     print_cell_costs(overlay_nodes)
 
     print_location_ids(overlay_nodes)
 
-    visualize_topology(topology)
+    # visualize_topology(topology)
 
     print(f'Number of Nodes: {num_nodes}')
 

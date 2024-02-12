@@ -5,7 +5,7 @@ import time
 from typing import List
 
 from ether.core import Node
-from ether.util import harmonic_random_number, topsis, is_edge_node
+from ether.util import harmonic_random_number, topsis, is_edge_node, is_server_node
 from ether.topology import Topology
 
 
@@ -56,7 +56,7 @@ class SymphonyOverlay:
             node.predecessor_links = [sorted_nodes[(i - 1) % num_nodes], sorted_nodes[(i - 2) % num_nodes]]
 
 
-    def set_long_distance_links(self, topology: Topology, max_num_links: int = 2, link_selection_method: str = 'topsis', weights=np.array([1, 1]), is_benefit=np.array([False, False]), candidate_list_size_factor: int = 2):
+    def set_long_distance_links(self, topology: Topology, max_num_links: int = 2, link_selection_method: str = 'topsis', weights=np.array([1, 1, 1]), is_benefit=np.array([False, False, True]), candidate_list_size_factor: int = 2):
         """
         Set the long-distance links for this node based on the Symphony network properties.
         """
@@ -77,6 +77,8 @@ class SymphonyOverlay:
             potential_targets = []
             found_targets = 0
             attempt_counter = 0
+            is_server = is_server_node(node)
+            print(f"----- {node} -----")
 
             # Try to find potential targets up to a calculated maximum number of attempts
             while found_targets < selection_size_factor * max_num_links and attempt_counter < max_attempts:
@@ -96,28 +98,36 @@ class SymphonyOverlay:
                     found_targets += 1
 
             if attempt_counter == max_attempts:
-                print(f"Max number of attempts reached for {node}. Found {len(potential_targets)} unique potential targets.")
+                print(f"Max number of attempts reached for {node}. Found {len(potential_targets)} unique potential target(s).")
 
             # Check if the number of found targets is less than expected
             if len(potential_targets) < selection_size_factor * max_num_links:
-                print(f"Only found {len(potential_targets)} unique potential targets for {node}, but expected {selection_size_factor * max_num_links}.")
+                print(f"Only found {len(potential_targets)} unique potential target(s) for {node}, but expected {selection_size_factor * max_num_links}.")
+
             # Apply the TOPSIS method for link selection
             shortlisted_targets_desired_size = min(len(potential_targets), candidate_list_size_factor * max_num_links)
             shortlisted_targets = potential_targets[:shortlisted_targets_desired_size]
             if link_selection_method == 'topsis' and shortlisted_targets:
                 criteria = []
+                print(f"shortlisted_targets {shortlisted_targets}")
+
                 for target in shortlisted_targets:
                     # Calculate link_latency as a criterion for TOPSIS
                     link_latency = topology.latency(node, target, use_coordinates=True)
+                    # Calculate link_cell_cost as a criterion for TOPSIS
                     link_cell_cost = node.cell_cost + target.cell_cost
-                    criteria.append([link_latency, link_cell_cost])
+                    # High priority for server nodes with matching location_id
+                    location_match_priority = 1 if (is_server and is_server_node(target) and target.location_id == node.location_id) else 0
+                    criteria.append([link_latency, link_cell_cost, location_match_priority])
+                print(f"criteria {criteria}")
 
                 criteria_matrix = np.array(criteria)
                 # Calculate TOPSIS scores
                 scores = topsis(criteria_matrix, weights, is_benefit)
+                print(f"scores {scores}")
                 # Select the top targets based on scores
                 finalist_targets = [shortlisted_targets[i] for i in np.argsort(scores)[::-1][:max_num_links]]
-
+                print(f"finalist_targets {finalist_targets}")
                 # Establish links with the selected targets
                 for target in finalist_targets:
                     if len(node.long_distance_links) < max_num_links and len(target.long_distance_links) < max_num_links:
