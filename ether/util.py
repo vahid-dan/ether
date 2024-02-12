@@ -1,44 +1,64 @@
-import re
 import numpy as np
-import random
+import srds
 
-from ether.core import Node
-
-__size_conversions = {
-    'K': 10 ** 3,
-    'M': 10 ** 6,
-    'G': 10 ** 9,
-    'T': 10 ** 12,
-    'P': 10 ** 15,
-    'E': 10 ** 18,
-    'Ki': 2 ** 10,
-    'Mi': 2 ** 20,
-    'Gi': 2 ** 30,
-    'Ti': 2 ** 40,
-    'Pi': 2 ** 50,
-    'Ei': 2 ** 60
-}
-
-__size_pattern = re.compile(r"([0-9]+)([a-zA-Z]*)")
+from ether.blocks.cells import IoTComputeBox, Cloudlet, FiberToExchange, MobileConnection
+from ether.cell import GeoCell
+from ether.core import Node, Link
+from ether.topology import Topology
 
 
-def parse_size_string(size_string: str) -> int:
-    m = __size_pattern.match(size_string)
-    if len(m.groups()) > 1:
-        number = m.group(1)
-        unit = m.group(2)
-        return int(number) * __size_conversions.get(unit, 1)
+lognorm = srds.ParameterizedDistribution.lognorm
+
+
+def node_name(obj):
+    if isinstance(obj, Node):
+        return obj.name
+    elif isinstance(obj, Link):
+        return f'link_{id(obj)}'
     else:
-        return int(m.group(1))
+        return str(obj)
+    
+
+def generate_topology(num_neighborhoods,
+                      num_nodes_per_neighborhood,
+                      num_cloudlets,
+                      num_racks,
+                      num_servers_per_rack,
+                      node_type,
+                      density_params):
+    topology = Topology()
 
 
-def to_size_string(num_bytes, unit='M', precision=1) -> str:
-    factor = __size_conversions[unit]
-    value = num_bytes / factor
+    def create_neighborhoods(count):
+        neighborhood_nodes = []
+        for _ in range(count):
+            node = IoTComputeBox(nodes=[node_type], backhaul=MobileConnection('internet_chix'))
+            neighborhood_nodes.append(node)
+        return neighborhood_nodes
 
-    fmt = f'%0.{precision}f{unit}'
 
-    return fmt % value
+    def create_cloudlets(count):
+        cloudlets = []
+        for i in range(count):
+            location_id = str(i)
+            cloudlet = Cloudlet(
+                num_servers_per_rack,
+                num_racks,
+                backhaul=FiberToExchange('internet_chix'),
+                location_id=location_id)
+            cloudlets.append(cloudlet)
+        return cloudlets    
+
+
+    city = GeoCell(
+        num_neighborhoods,
+        nodes=create_neighborhoods(num_nodes_per_neighborhood),
+        density=lognorm(density_params))
+    
+    topology.add(city)
+    for cloudlet in create_cloudlets(num_cloudlets):
+        topology.add(cloudlet)
+    return topology
 
 
 def harmonic_random_number(num_nodes):

@@ -2,7 +2,6 @@ import hashlib
 import numpy as np
 import random
 import time
-import math
 from typing import List
 
 from ether.core import Node
