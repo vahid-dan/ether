@@ -27,43 +27,53 @@ def node_name(obj):
 
 def generate_topology(num_neighborhoods,
                       num_nodes_per_neighborhood,
+                      num_cloudlets,
                       num_racks,
                       num_servers_per_rack,
                       node_type=nodes.rpi4,
                       density_params=(0.82, 2.02)):
     topology = Topology()
 
-    def create_neighborhood(size):
+
+    def create_neighborhoods(count):
         neighborhood_nodes = []
-        for _ in range(size):
+        for _ in range(count):
             node = IoTComputeBox(nodes=[node_type], backhaul=MobileConnection('internet_chix'))
             neighborhood_nodes.append(node)
         return neighborhood_nodes
 
+
+    def create_cloudlets(count):
+        cloudlets = []
+        for _ in range(count):
+            cloudlet = Cloudlet(
+                num_servers_per_rack,
+                num_racks,
+                backhaul=FiberToExchange('internet_chix'))
+            cloudlets.append(cloudlet)
+        return cloudlets    
+
+
     city = GeoCell(
         num_neighborhoods,
-        nodes=create_neighborhood(num_nodes_per_neighborhood),
+        nodes=create_neighborhoods(num_nodes_per_neighborhood),
         density=lognorm(density_params))
-
-    cloudlet = Cloudlet(
-        num_servers_per_rack,
-        num_racks,
-        backhaul=FiberToExchange('internet_chix'))
-
+    
     topology.add(city)
-    topology.add(cloudlet)
-
+    for cloudlet in create_cloudlets(num_cloudlets):
+        topology.add(cloudlet)
     return topology
 
 
 def main(num_neighborhoods=3,
          num_nodes_per_neighborhood=5,
+         num_cloudlets=2,
          num_racks=2,
          num_servers_per_rack=4,
          node_type=nodes.rpi4,
          density_params=(0.82, 2.02),
          metered_edge_nodes_percentage=50):
-    topology = generate_topology(num_neighborhoods, num_nodes_per_neighborhood, num_racks, num_servers_per_rack, node_type, density_params)
+    topology = generate_topology(num_neighborhoods, num_nodes_per_neighborhood, num_cloudlets, num_racks, num_servers_per_rack, node_type, density_params)
 
     # Update Vivaldi coordinates based on network interactions for all nodes
     execute_vivaldi(topology, node_filter=lambda n: isinstance(n, Node), min_executions=300)
@@ -80,13 +90,13 @@ def main(num_neighborhoods=3,
     symphony_overlay.set_successor_links()    
     symphony_overlay.set_long_distance_links(topology=topology, max_num_links=max_num_links, link_selection_method='topsis', candidate_list_size_factor=2, weights=[1, 1], is_benefit=[False, False])
 
-    # visualize_topology(topology)
+    visualize_topology(topology)
 
-    # print(f'Number of Nodes: {num_nodes}')
+    print(f'Number of Nodes: {num_nodes}')
 
     # print_symphony_structure(symphony_overlay)
 
-    # visualize_symphony_structure(topology)
+    visualize_symphony_structure(topology)
 
 if __name__ == '__main__':
     SEED = 42 # Use SEED in random functions
@@ -95,9 +105,10 @@ if __name__ == '__main__':
     np.random.seed(SEED)
     num_neighborhoods = 3
     num_nodes_per_neighborhood = 5
+    num_cloudlets = 2
     num_racks = 2
     num_servers_per_rack = 4
     node_type = nodes.rpi4
     density_params = (0.82, 2.02)
     metered_edge_nodes_percentage = 50
-    main(num_neighborhoods, num_nodes_per_neighborhood, num_racks, num_servers_per_rack, node_type, density_params, metered_edge_nodes_percentage)
+    main(num_neighborhoods, num_nodes_per_neighborhood, num_cloudlets, num_racks, num_servers_per_rack, node_type, density_params, metered_edge_nodes_percentage)
