@@ -3,6 +3,7 @@ import numpy as np
 import random
 import time
 from typing import List
+import math
 
 from ether.core import Node
 from ether.util import harmonic_random_number, topsis, is_edge_node, is_server_node
@@ -56,96 +57,74 @@ class SymphonyOverlay:
             node.predecessor_links = [sorted_nodes[(i - 1) % num_nodes], sorted_nodes[(i - 2) % num_nodes]]
 
 
-    def set_long_distance_links(self, topology: Topology, max_num_links: int = 2, link_selection_method: str = 'topsis', weights=np.array([1, 1, 1]), is_benefit=np.array([False, False, True]), candidate_list_size_factor: int = 2):
+    def set_long_distance_links(self, topology: Topology, max_num_links: int = 2, link_selection_method: str = 'topsis', candidate_list_size_factor: int = 2, weights=np.array([1, 1]), is_benefit=np.array([False, False])):
         """
-        Set the long-distance links for this node based on the Symphony network properties.
+        Randomly select a node and attempt to assign a single link, repeating for a specified number of iterations.
         """
         sorted_nodes = sorted(self.nodes, key=lambda x: x.symphony_id)
         num_nodes = len(sorted_nodes)
-        selection_size_factor = 4
-        attempt_factor = num_nodes * selection_size_factor
-        max_attempts = num_nodes * attempt_factor # Set a limit to prevent infinite loops
-        if candidate_list_size_factor > selection_size_factor:
-            raise ValueError(f"candidate_list_size_factor {candidate_list_size_factor} is larger than {selection_size_factor} and not accepted.")
+        selection_size_factor = round(math.log(num_nodes))
+        total_iterations = num_nodes * max_num_links * selection_size_factor
 
-        for node in sorted_nodes:
-            # Check if the node already has the maximum number of long-distance links
+        for _ in range(total_iterations):
+            # Randomly select a node
+            node_index = np.random.randint(0, num_nodes)
+            node = sorted_nodes[node_index]
+
+            # Skip nodes that have reached the max number of links
             if len(node.long_distance_links) >= max_num_links:
-                print(f"Max number of links reached for {node}.")
                 continue
 
             potential_targets = []
             found_targets = 0
             attempt_counter = 0
-            is_server = is_server_node(node)
-            print(f"----- {node} -----")
+            max_attempts = num_nodes * 10  # Adjusted to limit attempts for each iteration
 
-            # Try to find potential targets up to a calculated maximum number of attempts
-            while found_targets < selection_size_factor * max_num_links and attempt_counter < max_attempts:
+            # Try to find one potential target
+            while found_targets < selection_size_factor and attempt_counter < max_attempts:
                 attempt_counter += 1
                 # Select a random target based on harmonic distribution
                 index = harmonic_random_number(num_nodes) - 1
                 potential_target = sorted_nodes[index]
 
-                # Ensure the potential target meets all criteria for selection
                 if (len(potential_target.long_distance_links) < max_num_links and
                     potential_target != node and
                     potential_target not in node.successor_links and
                     potential_target not in node.predecessor_links and
-                    potential_target not in node.long_distance_links and
-                    potential_target not in potential_targets): # Ensure potential target is unique
+                    potential_target not in node.long_distance_links):
                     potential_targets.append(potential_target)
                     found_targets += 1
-
-            if attempt_counter == max_attempts:
-                print(f"Max number of attempts reached for {node}. Found {len(potential_targets)} unique potential target(s).")
-
-            # Check if the number of found targets is less than expected
-            if len(potential_targets) < selection_size_factor * max_num_links:
-                print(f"Only found {len(potential_targets)} unique potential target(s) for {node}, but expected {selection_size_factor * max_num_links}.")
-
-            # Apply the TOPSIS method for link selection
-            shortlisted_targets_desired_size = min(len(potential_targets), candidate_list_size_factor * max_num_links)
-            shortlisted_targets = potential_targets[:shortlisted_targets_desired_size]
-            if link_selection_method == 'topsis' and shortlisted_targets:
+            print(f"potential_targets for {node} {potential_targets}")
+            # Apply the TOPSIS method for link selection if targets are found
+            if potential_targets and link_selection_method == 'topsis':
                 criteria = []
-                print(f"shortlisted_targets {shortlisted_targets}")
-
-                for target in shortlisted_targets:
-                    # Calculate link_latency as a criterion for TOPSIS
+                for target in potential_targets:
+                    # Example criteria calculation
                     link_latency = topology.latency(node, target, use_coordinates=True)
-                    # Calculate link_cell_cost as a criterion for TOPSIS
-                    link_cell_cost = node.cell_cost + target.cell_cost
-                    # High priority for server nodes with matching location_id
-                    location_match_priority = 1 if (is_server and is_server_node(target) and target.location_id == node.location_id) else 0
-                    criteria.append([link_latency, link_cell_cost, location_match_priority])
+                    link_cell_cost = target.cell_cost
+                    criteria.append([link_latency, link_cell_cost])
                 print(f"criteria {criteria}")
-
                 criteria_matrix = np.array(criteria)
-                # Calculate TOPSIS scores
                 scores = topsis(criteria_matrix, weights, is_benefit)
                 print(f"scores {scores}")
-                # Select the top targets based on scores
-                finalist_targets = [shortlisted_targets[i] for i in np.argsort(scores)[::-1][:max_num_links]]
-                print(f"finalist_targets {finalist_targets}")
-                # Establish links with the selected targets
-                for target in finalist_targets:
-                    if len(node.long_distance_links) < max_num_links and len(target.long_distance_links) < max_num_links:
-                        node.long_distance_links.append(target)
-                        target.long_distance_links.append(node) # Ensure bidirectional links
+                best_target_index = np.argmax(scores)
+                best_target = potential_targets[best_target_index]
 
-            # Use a random method for link selection
-            elif link_selection_method == 'random':
-                for target in potential_targets:
-                    # Establish links with randomly selected targets, respecting max_num_links
-                    if len(node.long_distance_links) < max_num_links and len(target.long_distance_links) < max_num_links:
-                        node.long_distance_links.append(target)
-                        target.long_distance_links.append(node) # Ensure bidirectional links
-                    elif len(node.long_distance_links) >= max_num_links:
-                        break
+                # Establish a link with the best target
+                node.long_distance_links.append(best_target)
+                best_target.long_distance_links.append(node)  # Ensure bidirectional links
+                print(f"Preferred Link established between {node} and {best_target}")
 
+            elif link_selection_method == 'random' and potential_targets:
+                random_target = potential_targets[0]
 
-    def find_closest_clockwise_node(self, current_node, destination_id):
+                # Establish links with randomly selected targets, respecting max_num_links
+                node.long_distance_links.append(random_target)
+                random_target.long_distance_links.append(node)  # Ensure bidirectional links
+                print(f"Random link established between {node} and {random_target}")
+            print(f"Links for {node} {node.long_distance_links}")
+
+    def find_closest_clockwise_node(self, current_node, destination_node):
         """
         Find the node closest to the destination in a clockwise direction,
         handling the wrap-around of the ring.
@@ -154,12 +133,12 @@ class SymphonyOverlay:
         sorted_links = sorted(all_links, key=lambda node: node.symphony_id)
 
         # Wrap-around case
-        if self.symphony_id > destination_id:
+        if current_node.symphony_id > destination_node.symphony_id:
             closest_node_after_wrap = None
 
             # Find the node closest to the start of the ring, but before the destination_id
             for node in sorted_links:
-                if node.symphony_id <= destination_id:
+                if node.symphony_id <= destination_node.symphony_id:
                     if closest_node_after_wrap is None or node.symphony_id > closest_node_after_wrap.symphony_id:
                         closest_node_after_wrap = node
 
@@ -170,7 +149,7 @@ class SymphonyOverlay:
             # Otherwise, return the node closest to the end of the ring
             closest_node_to_end = None
             for node in sorted_links:
-                if node.symphony_id > self.symphony_id:
+                if node.symphony_id > current_node.symphony_id:
                     if closest_node_to_end is None or node.symphony_id > closest_node_to_end.symphony_id:
                         closest_node_to_end = node
 
@@ -179,7 +158,7 @@ class SymphonyOverlay:
         # Normal case: destination is ahead in the ring
         closest_node = None
         for node in sorted_links:
-            if node.symphony_id > self.symphony_id and (closest_node is None or node.symphony_id <= destination_id and node.symphony_id > closest_node.symphony_id):
+            if node.symphony_id > current_node.symphony_id and (closest_node is None or node.symphony_id <= destination_node.symphony_id and node.symphony_id > closest_node.symphony_id):
                 closest_node = node
 
         if closest_node:
@@ -201,7 +180,7 @@ class SymphonyOverlay:
         current_node = start_node
 
         while current_node != destination_node:
-            next_node = self.find_closest_clockwise_node(current_node, destination_node.symphony_id)
+            next_node = self.find_closest_clockwise_node(current_node, destination_node)
             path.append(next_node)
             current_node = next_node
 
@@ -213,14 +192,15 @@ class SymphonyOverlay:
         edge_nodes = [node for node in self.nodes if is_edge_node(node)]
         
         # Calculate number of nodes to assign random cost
-        num_random_cost = int(len(edge_nodes) * (percentage / 100.0))
+        num_metered_edge_nodes = int(len(edge_nodes) * (percentage / 100.0))
         
         # Randomly select nodes for random cost assignment
-        metered_nodes = random.sample(edge_nodes, num_random_cost) if edge_nodes else []
+        metered_edge_nodes = random.sample(edge_nodes, num_metered_edge_nodes) if edge_nodes else []
         
         # Assign random cost to selected nodes and 0 to others
         for node in self.nodes:
-            if node in metered_nodes:
-                node.cell_cost = random.uniform(0, 1)
+            if node in metered_edge_nodes:
+                # node.cell_cost = random.uniform(0, 1)
+                node.cell_cost = 1
             else:
                 node.cell_cost = 0
