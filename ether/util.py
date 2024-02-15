@@ -132,20 +132,32 @@ def calculate_total_latency(path, topology):
 
 
 # Function to calculate total cell_cost for a path
-def calculate_total_cell_cost(path):
-    total_cell_cost = 0
-    incoming_traffic_cost = 1
-    outgoing_traffic_cost = 1
-    for i in range(len(path)):
-        # Skip the incoming traffic cost for the first node
-        if i > 0:
-            if path[i].name.startswith('rpi4'):
-                total_cell_cost += incoming_traffic_cost
+# def calculate_total_cell_cost(path):
+#     total_cell_cost = 0
 
-        # Skip the outgoing cost for the last node
-        if i < len(path) - 1:
-            if path[i].name.startswith('rpi4'):
-                total_cell_cost += outgoing_traffic_cost
+#     for node in path:
+#         if hasattr(node, 'cell_cost'):
+#             total_cell_cost += node.cell_cost
+
+#     return total_cell_cost
+
+
+# Function to calculate total cell_cost for a path
+def calculate_total_cell_cost(path):
+    if not path:  # Early return if path is empty
+        return 0
+
+    total_cell_cost = 0
+    path_length = len(path)
+
+    for i, node in enumerate(path):
+        if hasattr(node, 'cell_cost'):
+            # For the first and last node, add cell_cost once
+            if i == 0 or i == path_length - 1:
+                total_cell_cost += node.cell_cost
+            # For inner nodes, add cell_cost twice
+            else:
+                total_cell_cost += node.cell_cost * 2
 
     return total_cell_cost
 
@@ -156,7 +168,7 @@ def print_cell_costs(nodes):
             print(f"{node.name} is an edge node.")
             cell_cost = getattr(node, 'cell_cost', None)
             if cell_cost:
-                print(f"cell_cost {cell_cost}")    
+                print(f"cell_cost {cell_cost}")
         elif is_server_node(node):
             print(f"{node.name} is a server node.")
 
