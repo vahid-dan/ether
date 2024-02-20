@@ -57,22 +57,36 @@ class SymphonyOverlay:
             node.predecessor_links = [sorted_nodes[(i - 1) % num_nodes], sorted_nodes[(i - 2) % num_nodes]]
 
 
-    def set_long_distance_links(self, topology: Topology, max_num_links: int = 2, link_selection_method: str = 'topsis', candidate_list_size_factor: int = 2, weights=np.array([1, 1]), is_benefit=np.array([False, False])):
+    def set_long_distance_links(self, topology: Topology, link_selection_method: str = 'topsis', weights=np.array([1, 1]), is_benefit=np.array([False, False])):
         """
         Randomly select a node and attempt to assign a single link, repeating for a specified number of iterations.
         """
         sorted_nodes = sorted(self.nodes, key=lambda x: x.symphony_id)
         num_nodes = len(sorted_nodes)
         selection_size_factor = round(math.log(num_nodes))
-        total_iterations = num_nodes * max_num_links * selection_size_factor
+        max_num_links = round(math.log(num_nodes))
+        total_iterations = int(num_nodes * max_num_links * selection_size_factor / 2)
+        # max_total_links = int(num_nodes * selection_size_factor / 2)
+        max_total_links = float('inf')
+        # max_total_links = 101
+        total_links_created = 0
+        servers_max_num_links = max_num_links * 8
 
         for _ in range(total_iterations):
+            # Check if the network has reached the maximum total number of links
+            if total_links_created >= max_total_links:
+                print("Reached the maximum total number of links for the network.")
+                break
+
             # Randomly select a node
             node_index = np.random.randint(0, num_nodes)
             node = sorted_nodes[node_index]
 
             # Skip nodes that have reached the max number of links
-            if len(node.long_distance_links) >= max_num_links:
+            if is_server_node(node):
+                if len(node.long_distance_links) >= servers_max_num_links:
+                    continue
+            elif len(node.long_distance_links) >= max_num_links:
                 continue
 
             potential_targets = []
@@ -81,22 +95,60 @@ class SymphonyOverlay:
             max_attempts = num_nodes * 10  # Adjusted to limit attempts for each iteration
 
             # Try to find one potential target
-            while found_targets < selection_size_factor and attempt_counter < max_attempts:
+            while found_targets < 1 and attempt_counter < max_attempts:
                 attempt_counter += 1
                 # Select a random target based on harmonic distribution
                 index = harmonic_random_number(num_nodes) - 1
                 potential_target = sorted_nodes[index]
 
-                if (len(potential_target.long_distance_links) < max_num_links and
+                if is_server_node(potential_target):
+                    if (len(potential_target.long_distance_links) < servers_max_num_links and
+                        potential_target != node and
+                        potential_target not in node.successor_links and
+                        potential_target not in node.predecessor_links and
+                        potential_target not in node.long_distance_links):
+                        potential_targets.append(potential_target)
+                        found_targets += 1
+                elif (len(potential_target.long_distance_links) < max_num_links and
                     potential_target != node and
                     potential_target not in node.successor_links and
                     potential_target not in node.predecessor_links and
                     potential_target not in node.long_distance_links):
                     potential_targets.append(potential_target)
                     found_targets += 1
-            print(f"potential_targets for {node} {potential_targets}")
+
             # Apply the TOPSIS method for link selection if targets are found
             if potential_targets and link_selection_method == 'topsis':
+
+                # Function to find additional targets
+                def find_additional_targets(start_index, direction, max_count):
+                    count = 0
+                    current_index = start_index
+                    while count < max_count:
+                        current_index = (current_index + direction) % num_nodes
+                        if current_index == start_index:
+                            break  # Stop if we've looped all the way around
+                        new_target = sorted_nodes[current_index]
+                        if is_server_node(new_target):
+                            if (len(new_target.long_distance_links) < servers_max_num_links and
+                                new_target != node and
+                                new_target not in node.successor_links and
+                                new_target not in node.predecessor_links and
+                                new_target not in node.long_distance_links):
+                                potential_targets.append(new_target)
+                                count += 1
+                        elif (len(new_target.long_distance_links) < max_num_links and
+                            new_target != node and
+                            new_target not in node.successor_links and
+                            new_target not in node.predecessor_links and
+                            new_target not in node.long_distance_links):
+                            potential_targets.append(new_target)
+                            count += 1
+
+                # Find more targets before and after the found target
+                find_additional_targets(index, -1, selection_size_factor)  # Search backwards for new targets
+                find_additional_targets(index, 1, selection_size_factor)   # Search forwards for new targets
+                print(f"potential_targets for {node} {potential_targets}")
                 criteria = []
                 for target in potential_targets:
                     # Example criteria calculation
@@ -113,16 +165,24 @@ class SymphonyOverlay:
                 # Establish a link with the best target
                 node.long_distance_links.append(best_target)
                 best_target.long_distance_links.append(node)  # Ensure bidirectional links
-                print(f"Preferred Link established between {node} and {best_target}")
+                total_links_created += 1
+                if total_links_created >= max_total_links:
+                    print(f"Reached max_total_links {max_total_links}")
+                print(f"Preferred Link {node} -----> {best_target}")
 
-            elif link_selection_method == 'random' and potential_targets:
+            elif potential_targets and  link_selection_method == 'random':
+                print(f"potential_targets for {node} {potential_targets}")
                 random_target = potential_targets[0]
 
-                # Establish links with randomly selected targets, respecting max_num_links
+                # Establish links with randomly selected targets
                 node.long_distance_links.append(random_target)
                 random_target.long_distance_links.append(node)  # Ensure bidirectional links
-                print(f"Random link established between {node} and {random_target}")
+                total_links_created += 1
+                if total_links_created >= max_total_links:
+                    print(f"Reached max_total_links {max_total_links}")
+                print(f"Random Link {node} -----> {random_target}")
             print(f"Links for {node} {node.long_distance_links}")
+            print(f"total_links_created {total_links_created}")
 
     def find_closest_clockwise_node(self, current_node, destination_node):
         """
@@ -204,3 +264,13 @@ class SymphonyOverlay:
                 node.cell_cost = 1
             else:
                 node.cell_cost = 0
+
+
+    def calculate_total_long_distance_metrics(self, topology):
+        total_latency = 0
+        total_cost = 0
+        for node in self.nodes:
+            for linked_node in node.long_distance_links:
+                total_latency += topology.latency(node, linked_node, use_coordinates=False)
+                total_cost += linked_node.cell_cost
+        return total_latency, total_cost
