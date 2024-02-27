@@ -6,8 +6,10 @@ from typing import List
 import math
 
 from ether.core import Node
-from ether.util import harmonic_random_number, topsis, is_edge_node, is_server_node
+from ether.util import is_edge_node, is_server_node
 from ether.topology import Topology
+from ether.link_selection import get_potential_targets_randomly, get_potential_targets_from_neighborhood, decide_topsis
+
 
 
 class SymphonyOverlay:
@@ -57,7 +59,7 @@ class SymphonyOverlay:
             node.predecessor_links = [sorted_nodes[(i - 1) % num_nodes], sorted_nodes[(i - 2) % num_nodes]]
 
 
-    def set_long_distance_links(self, topology: Topology, link_selection_method: str = 'topsis', weights=np.array([1, 1]), is_benefit=np.array([False, False])):
+    def set_long_distance_links(self, topology: Topology, target_selection_strategy: str = 'harmonic', decision_method: str = 'topsis', weights=np.array([1, 1]), is_benefit=np.array([False, False])):
         """
         Randomly select a node and attempt to assign a single link, repeating for a specified number of iterations.
         """
@@ -65,12 +67,10 @@ class SymphonyOverlay:
         num_nodes = len(sorted_nodes)
         selection_size_factor = round(math.log(num_nodes))
         max_num_links = round(math.log(num_nodes))
-        total_iterations = int(num_nodes * max_num_links * selection_size_factor / 2)
-        # max_total_links = int(num_nodes * selection_size_factor / 2)
-        max_total_links = float('inf')
-        # max_total_links = 101
-        total_links_created = 0
         servers_max_num_links = max_num_links * 8
+        total_iterations = int(num_nodes * max_num_links * selection_size_factor / 2)
+        max_total_links = float('inf')
+        total_links_created = 0
 
         for _ in range(total_iterations):
             # Check if the network has reached the maximum total number of links
@@ -89,100 +89,38 @@ class SymphonyOverlay:
             elif len(node.long_distance_links) >= max_num_links:
                 continue
 
-            potential_targets = []
-            found_targets = 0
-            attempt_counter = 0
-            max_attempts = num_nodes * 10  # Adjusted to limit attempts for each iteration
+            # Select potential targets based on the specified strategy
+            if target_selection_strategy == 'neighborhood':
+                potential_targets = get_potential_targets_from_neighborhood(sorted_nodes, node, num_nodes, selection_size_factor, max_num_links, servers_max_num_links)
+            elif target_selection_strategy == 'harmonic':
+                potential_targets = get_potential_targets_randomly(sorted_nodes, node, num_nodes, selection_size_factor, max_num_links, servers_max_num_links)
+            else:
+                raise ValueError(f"Unknown target selection strategy: {target_selection_strategy}")
 
-            # Try to find one potential target
-            while found_targets < 1 and attempt_counter < max_attempts:
-                attempt_counter += 1
-                # Select a random target based on harmonic distribution
-                index = harmonic_random_number(num_nodes) - 1
-                potential_target = sorted_nodes[index]
-
-                if is_server_node(potential_target):
-                    if (len(potential_target.long_distance_links) < servers_max_num_links and
-                        potential_target != node and
-                        potential_target not in node.successor_links and
-                        potential_target not in node.predecessor_links and
-                        potential_target not in node.long_distance_links):
-                        potential_targets.append(potential_target)
-                        found_targets += 1
-                elif (len(potential_target.long_distance_links) < max_num_links and
-                    potential_target != node and
-                    potential_target not in node.successor_links and
-                    potential_target not in node.predecessor_links and
-                    potential_target not in node.long_distance_links):
-                    potential_targets.append(potential_target)
-                    found_targets += 1
-
-            # Apply the TOPSIS method for link selection if targets are found
-            if potential_targets and link_selection_method == 'topsis':
-
-                # Function to find additional targets
-                def find_additional_targets(start_index, direction, max_count):
-                    count = 0
-                    current_index = start_index
-                    while count < max_count:
-                        current_index = (current_index + direction) % num_nodes
-                        if current_index == start_index:
-                            break  # Stop if we've looped all the way around
-                        new_target = sorted_nodes[current_index]
-                        if is_server_node(new_target):
-                            if (len(new_target.long_distance_links) < servers_max_num_links and
-                                new_target != node and
-                                new_target not in node.successor_links and
-                                new_target not in node.predecessor_links and
-                                new_target not in node.long_distance_links):
-                                potential_targets.append(new_target)
-                                count += 1
-                        elif (len(new_target.long_distance_links) < max_num_links and
-                            new_target != node and
-                            new_target not in node.successor_links and
-                            new_target not in node.predecessor_links and
-                            new_target not in node.long_distance_links):
-                            potential_targets.append(new_target)
-                            count += 1
-
-                # Find more targets before and after the found target
-                find_additional_targets(index, -1, selection_size_factor)  # Search backwards for new targets
-                find_additional_targets(index, 1, selection_size_factor)   # Search forwards for new targets
-                print(f"potential_targets for {node} {potential_targets}")
-                criteria = []
-                for target in potential_targets:
-                    # Example criteria calculation
-                    link_latency = topology.latency(node, target, use_coordinates=True)
-                    link_cell_cost = target.cell_cost
-                    criteria.append([link_latency, link_cell_cost])
-                print(f"criteria {criteria}")
-                criteria_matrix = np.array(criteria)
-                scores = topsis(criteria_matrix, weights, is_benefit)
-                print(f"scores {scores}")
-                best_target_index = np.argmax(scores)
-                best_target = potential_targets[best_target_index]
-
-                # Establish a link with the best target
+            if potential_targets:
+                # Decide on the best target based on the specified decision method
+                if decision_method == 'topsis':
+                    criteria = [[topology.latency(node, target, use_coordinates=True), target.cell_cost] for target in potential_targets]
+                    criteria_matrix = np.array(criteria)
+                    best_target_index = decide_topsis(criteria_matrix, weights, is_benefit)
+                    best_target = potential_targets[best_target_index]
+                elif decision_method == 'random':
+                    best_target_index = 0  # The first choice in the list of potential targets
+                    best_target = potential_targets[best_target_index]
+                else:
+                    raise ValueError(f"Unknown decision method: {decision_method}")
+                
+                # Establish links with randomly selected targets
                 node.long_distance_links.append(best_target)
                 best_target.long_distance_links.append(node)  # Ensure bidirectional links
                 total_links_created += 1
                 if total_links_created >= max_total_links:
                     print(f"Reached max_total_links {max_total_links}")
-                print(f"Preferred Link {node} -----> {best_target}")
+                print(f"Link {node} -----> {best_target}")
 
-            elif potential_targets and  link_selection_method == 'random':
-                print(f"potential_targets for {node} {potential_targets}")
-                random_target = potential_targets[0]
+        print(f"total_links_created {total_links_created}")
+        return
 
-                # Establish links with randomly selected targets
-                node.long_distance_links.append(random_target)
-                random_target.long_distance_links.append(node)  # Ensure bidirectional links
-                total_links_created += 1
-                if total_links_created >= max_total_links:
-                    print(f"Reached max_total_links {max_total_links}")
-                print(f"Random Link {node} -----> {random_target}")
-            print(f"Links for {node} {node.long_distance_links}")
-            print(f"total_links_created {total_links_created}")
 
     def find_closest_clockwise_node(self, current_node, destination_node):
         """

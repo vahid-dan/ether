@@ -14,7 +14,8 @@ from examples.vivaldi.util import execute_vivaldi
 from ether.util import generate_topology, calculate_total_latency, calculate_total_cell_cost
 
 
-def main(link_selection_method='topsis',
+def main(target_selection_strategy='harmonic',
+         decision_method='topsis',
          weights=[1, 1],
          num_neighborhoods=3,
          num_nodes_per_neighborhood=5,
@@ -59,14 +60,15 @@ def main(link_selection_method='topsis',
     print(f'Number of Nodes: {num_nodes}')
 
     # Format topology parameters into a string for the filename
-    topology_params_str = f"{link_selection_method}_w{weights[0]}-{weights[1]}_nn{num_neighborhoods}_npn{num_nodes_per_neighborhood}_nc{num_cloudlets}_nr{num_racks}_nspr{num_servers_per_rack}_nt{node_type.__name__}_dp{density_params[0]}-{density_params[1]}_menp{metered_edge_nodes_percentage}"
+    topology_params_str = f"{target_selection_strategy}_{decision_method}_w{weights[0]}-{weights[1]}_nn{num_neighborhoods}_npn{num_nodes_per_neighborhood}_nc{num_cloudlets}_nr{num_racks}_nspr{num_servers_per_rack}_nt{node_type.__name__}_dp{density_params[0]}-{density_params[1]}_menp{metered_edge_nodes_percentage}"
 
     # Initialize the Symphony overlay with these nodes
     symphony_overlay = SymphonyOverlay(overlay_nodes, seed=SEED)
     symphony_overlay.assign_cell_costs(metered_edge_nodes_percentage)
     symphony_overlay.set_successor_links()
     symphony_overlay.set_long_distance_links(topology=topology,
-                                             link_selection_method=link_selection_method,
+                                             target_selection_strategy=target_selection_strategy,
+                                             decision_method=decision_method,
                                              weights=weights,
                                              is_benefit=[False, False])
 
@@ -74,7 +76,7 @@ def main(link_selection_method='topsis',
 
     # print_symphony_structure(symphony_overlay)
 
-    # visualize_symphony_structure(topology)
+    visualize_symphony_structure(topology)
 
     for i, (source_node, destination_node) in enumerate(random_pairs, start=1):
         pair_to_nodes[str(i)] = (source_node.name, destination_node.name)
@@ -128,10 +130,13 @@ def main(link_selection_method='topsis',
         writer.writerow(['Cell Cost Maximum', total_cell_cost_max])
         writer.writerow(['Cell Cost Standard Deviation', total_cell_cost_std_dev])
 
+    print(f"Randomness Check {random.random()}")
+
+
 if __name__ == '__main__':
-    num_neighborhoods = 10
-    num_nodes_per_neighborhood = 25
-    num_cloudlets = 3
+    num_neighborhoods = 2
+    num_nodes_per_neighborhood = 5
+    num_cloudlets = 2
     num_racks = 1
     num_servers_per_rack = 2
     node_type = nodes.rpi4
@@ -141,13 +146,15 @@ if __name__ == '__main__':
     results_dir = 'results'
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    link_selection_method = "random"
+    target_selection_strategy = 'neighborhood'
+    decision_method = "random"
     weights = [1, 1]
     SEED = 0
     random.seed(SEED)
     srds.seed(SEED)
     np.random.seed(SEED)
-    main(link_selection_method,
+    main(target_selection_strategy,
+         decision_method,
          weights,
          num_neighborhoods,
          num_nodes_per_neighborhood,
