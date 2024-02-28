@@ -6,10 +6,9 @@ from typing import List
 import math
 
 from ether.core import Node
-from ether.util import is_edge_node, is_server_node
+from ether.util import is_edge_node, is_constrained_node, is_regular_node, is_power_node
 from ether.topology import Topology
 from ether.link_selection import get_potential_targets_randomly, get_potential_targets_from_neighborhood, decide_topsis
-
 
 
 class SymphonyOverlay:
@@ -65,10 +64,11 @@ class SymphonyOverlay:
         """
         sorted_nodes = sorted(self.nodes, key=lambda x: x.symphony_id)
         num_nodes = len(sorted_nodes)
-        selection_size_factor = round(math.log(num_nodes))
-        max_num_links = round(math.log(num_nodes))
-        servers_max_num_links = max_num_links * 8
-        total_iterations = int(num_nodes * max_num_links * selection_size_factor / 2)
+        selection_size_factor = round(math.log2(num_nodes))
+        power_max_num_links = round(math.log2(num_nodes)) * 4
+        regular_max_num_links = round(math.log2(num_nodes))
+        constrained_max_num_links = round(math.log2(num_nodes)) // 2
+        total_iterations = int(num_nodes * regular_max_num_links * selection_size_factor / 2)
         max_total_links = float('inf')
         total_links_created = 0
 
@@ -82,18 +82,25 @@ class SymphonyOverlay:
             node_index = np.random.randint(0, num_nodes)
             node = sorted_nodes[node_index]
 
-            # Skip nodes that have reached the max number of links
-            if is_server_node(node):
-                if len(node.long_distance_links) >= servers_max_num_links:
-                    continue
-            elif len(node.long_distance_links) >= max_num_links:
+            # Determine max_num_links based on node category
+            if is_power_node(node):
+                node_max_links = power_max_num_links
+            elif is_regular_node(node):
+                node_max_links = regular_max_num_links
+            elif is_constrained_node(node):
+                node_max_links = constrained_max_num_links
+            else:
+                continue  # Skip if node type is unknown or not categorized
+
+            # Skip nodes that have reached their max number of links
+            if len(node.long_distance_links) >= node_max_links:
                 continue
 
             # Select potential targets based on the specified strategy
             if target_selection_strategy == 'neighborhood':
-                potential_targets = get_potential_targets_from_neighborhood(sorted_nodes, node, num_nodes, selection_size_factor, max_num_links, servers_max_num_links)
+                potential_targets = get_potential_targets_from_neighborhood(sorted_nodes, node, num_nodes, selection_size_factor, power_max_num_links, regular_max_num_links, constrained_max_num_links)
             elif target_selection_strategy == 'harmonic':
-                potential_targets = get_potential_targets_randomly(sorted_nodes, node, num_nodes, selection_size_factor, max_num_links, servers_max_num_links)
+                potential_targets = get_potential_targets_randomly(sorted_nodes, node, num_nodes, selection_size_factor, power_max_num_links, regular_max_num_links, constrained_max_num_links)
             else:
                 raise ValueError(f"Unknown target selection strategy: {target_selection_strategy}")
 

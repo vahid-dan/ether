@@ -22,7 +22,7 @@ def main(target_selection_strategy='harmonic',
          num_cloudlets=2,
          num_racks=2,
          num_servers_per_rack=4,
-         node_type=nodes.rpi4,
+         node_types_and_shares=[(nodes.rpi4, 95), (nodes.rpi3, 5)],
          density_params=(0.82, 2.02),
          metered_edge_nodes_percentage=50,
          num_pairs=10,
@@ -33,7 +33,7 @@ def main(target_selection_strategy='harmonic',
                                  num_cloudlets,
                                  num_racks,
                                  num_servers_per_rack,
-                                 node_type,
+                                 node_types_and_shares,
                                  density_params)
 
     # Update Vivaldi coordinates based on network interactions for all nodes
@@ -60,7 +60,7 @@ def main(target_selection_strategy='harmonic',
     print(f'Number of Nodes: {num_nodes}')
 
     # Format topology parameters into a string for the filename
-    topology_params_str = f"{target_selection_strategy}_{decision_method}_w{weights[0]}-{weights[1]}_nn{num_neighborhoods}_npn{num_nodes_per_neighborhood}_nc{num_cloudlets}_nr{num_racks}_nspr{num_servers_per_rack}_nt{node_type.__name__}_dp{density_params[0]}-{density_params[1]}_menp{metered_edge_nodes_percentage}"
+    topology_params_str = f"{target_selection_strategy}_{decision_method}_w{weights[0]}-{weights[1]}_nn{num_neighborhoods}_npn{num_nodes_per_neighborhood}_nc{num_cloudlets}_nr{num_racks}_nspr{num_servers_per_rack}_dp{density_params[0]}-{density_params[1]}_menp{metered_edge_nodes_percentage}"
 
     # Initialize the Symphony overlay with these nodes
     symphony_overlay = SymphonyOverlay(overlay_nodes, seed=SEED)
@@ -139,7 +139,10 @@ if __name__ == '__main__':
     num_cloudlets = 2
     num_racks = 1
     num_servers_per_rack = 2
-    node_type = nodes.rpi4
+    node_types_and_shares = [
+        (nodes.rpi4, 80),
+        (nodes.rpi3, 20)
+    ]
     density_params = (0.82, 2.02)
     metered_edge_nodes_percentage = 20
     num_pairs = 256
@@ -161,7 +164,7 @@ if __name__ == '__main__':
          num_cloudlets,
          num_racks,
          num_servers_per_rack,
-         node_type,
+         node_types_and_shares,
          density_params,
          metered_edge_nodes_percentage,
          num_pairs,

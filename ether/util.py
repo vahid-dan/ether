@@ -1,5 +1,6 @@
 import numpy as np
 import srds
+from random import choices
 
 from ether.blocks.cells import IoTComputeBox, Cloudlet, FiberToExchange, MobileConnection
 from ether.cell import GeoCell
@@ -24,7 +25,7 @@ def generate_topology(num_neighborhoods,
                       num_cloudlets,
                       num_racks,
                       num_servers_per_rack,
-                      node_type,
+                      node_types_and_shares,
                       density_params):
     topology = Topology()
 
@@ -32,6 +33,12 @@ def generate_topology(num_neighborhoods,
     def create_neighborhoods(count):
         neighborhood_nodes = []
         for _ in range(count):
+            # Determine the node type for each node based on the specified shares
+            node_type = choices(
+                population=[nt[0] for nt in node_types_and_shares],
+                weights=[nt[1] for nt in node_types_and_shares],
+                k=1
+            )[0]
             node = IoTComputeBox(nodes=[node_type], backhaul=MobileConnection('internet_chix'))
             neighborhood_nodes.append(node)
         return neighborhood_nodes
@@ -189,5 +196,20 @@ def is_server_node(node: Node) -> bool:
 
 
 def is_edge_node(node: Node) -> bool:
-    edge_types = {'sbc', 'embai'}
-    return node.labels.get('ether.edgerun.io/type') in edge_types
+    edge_node_types = {'sbc', 'embai'}
+    return node.labels.get('ether.edgerun.io/type') in edge_node_types
+
+
+def is_power_node(node):
+    power_node_models = {'server', 'vm'}
+    return node.labels.get('ether.edgerun.io/model') in power_node_models
+
+
+def is_regular_node(node):
+    regular_node_models = {'rpi4', 'nvidia_jetson_nx', 'nvidia_jetson_tx2', 'nvidia_jetson_nano'}
+    return node.labels.get('ether.edgerun.io/model') in regular_node_models
+
+
+def is_constrained_node(node):
+    constrained_node_models = {'rpi3b+'}
+    return node.labels.get('ether.edgerun.io/model') in constrained_node_models

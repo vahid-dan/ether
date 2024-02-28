@@ -1,7 +1,8 @@
 import numpy as np
-from ether.util import harmonic_random_number, topsis, is_server_node
+from ether.util import harmonic_random_number, topsis, is_power_node, is_regular_node, is_constrained_node
 
-def get_potential_targets_randomly(sorted_nodes, node, num_nodes, selection_size_factor, max_num_links, servers_max_num_links):
+
+def get_potential_targets_randomly(sorted_nodes, node, num_nodes, selection_size_factor, power_max_num_links, regular_max_num_links, constrained_max_num_links):
     """
     Select potential targets randomly.
     """
@@ -15,16 +16,17 @@ def get_potential_targets_randomly(sorted_nodes, node, num_nodes, selection_size
         index = harmonic_random_number(num_nodes) - 1
         potential_target = sorted_nodes[index]
 
-        if is_server_node(potential_target):
-            if (len(potential_target.long_distance_links) < servers_max_num_links and
-                potential_target != node and
-                potential_target not in node.successor_links and
-                potential_target not in node.predecessor_links and
-                potential_target not in node.long_distance_links and
-                potential_target not in potential_targets):
-                potential_targets.append(potential_target)
-                found_targets += 1
-        elif (len(potential_target.long_distance_links) < max_num_links and
+        # Determine max_num_links based on node category
+        if is_power_node(potential_target):
+            potential_target_max_links = power_max_num_links
+        elif is_regular_node(potential_target):
+            potential_target_max_links = regular_max_num_links
+        elif is_constrained_node(potential_target):
+            potential_target_max_links = constrained_max_num_links
+        else:
+            continue  # Skip if node type is unknown or not categorized
+        
+        if (len(potential_target.long_distance_links) < potential_target_max_links and
             potential_target != node and
             potential_target not in node.successor_links and
             potential_target not in node.predecessor_links and
@@ -37,7 +39,7 @@ def get_potential_targets_randomly(sorted_nodes, node, num_nodes, selection_size
     return potential_targets
 
 
-def get_potential_targets_from_neighborhood(sorted_nodes, node, num_nodes, selection_size_factor, max_num_links, servers_max_num_links):
+def get_potential_targets_from_neighborhood(sorted_nodes, node, num_nodes, selection_size_factor, power_max_num_links, regular_max_num_links, constrained_max_num_links):
     """
     Select potential targets from the neighborhood.
     """
@@ -53,16 +55,17 @@ def get_potential_targets_from_neighborhood(sorted_nodes, node, num_nodes, selec
         index = harmonic_random_number(num_nodes) - 1
         potential_target = sorted_nodes[index]
 
-        if is_server_node(potential_target):
-            if (len(potential_target.long_distance_links) < servers_max_num_links and
-                potential_target != node and
-                potential_target not in node.successor_links and
-                potential_target not in node.predecessor_links and
-                potential_target not in node.long_distance_links and
-                potential_target not in potential_targets):
-                potential_targets.append(potential_target)
-                found_targets += 1
-        elif (len(potential_target.long_distance_links) < max_num_links and
+        # Determine max_num_links based on node category
+        if is_power_node(potential_target):
+            potential_target_max_links = power_max_num_links
+        elif is_regular_node(potential_target):
+            potential_target_max_links = regular_max_num_links
+        elif is_constrained_node(potential_target):
+            potential_target_max_links = constrained_max_num_links
+        else:
+            continue  # Skip if node type is unknown or not categorized
+
+        if (len(potential_target.long_distance_links) < potential_target_max_links and
             potential_target != node and
             potential_target not in node.successor_links and
             potential_target not in node.predecessor_links and
@@ -74,10 +77,10 @@ def get_potential_targets_from_neighborhood(sorted_nodes, node, num_nodes, selec
     print(f"potential_targets so far{potential_targets}")
     # Find more targets before and after the found target
     if found_targets > 0:
-        search_radius = int(selection_size_factor / 2)
+        search_radius = selection_size_factor // 2
         print(f"search_radius {search_radius}")
-        find_additional_targets(sorted_nodes, node, index, -1, search_radius, max_num_links, servers_max_num_links, potential_targets)  # Search backwards for new targets
-        find_additional_targets(sorted_nodes, node, index, 1, search_radius, max_num_links, servers_max_num_links, potential_targets)   # Search forwards for new targets
+        find_additional_targets(sorted_nodes, node, index, -1, search_radius, power_max_num_links, regular_max_num_links, constrained_max_num_links, potential_targets)  # Search backwards for new targets
+        find_additional_targets(sorted_nodes, node, index, 1, search_radius, power_max_num_links, regular_max_num_links, constrained_max_num_links, potential_targets)   # Search forwards for new targets
 
     print(f"potential_targets for {node} {potential_targets}")
     return potential_targets
@@ -135,7 +138,7 @@ def decide_topsis(criteria_matrix, weights, is_benefit):
     return best_target_index
 
 
-def find_additional_targets(sorted_nodes, node, start_index, direction, max_count, max_num_links, servers_max_num_links, potential_targets):
+def find_additional_targets(sorted_nodes, node, start_index, direction, max_count, power_max_num_links, regular_max_num_links, constrained_max_num_links, potential_targets):
     """
     Find additional potential targets in a specified direction.
     """
@@ -151,18 +154,23 @@ def find_additional_targets(sorted_nodes, node, start_index, direction, max_coun
         if new_target == node:
             continue  # Skip if it's the node itself
 
-        valid_target_conditions = (
-            len(new_target.long_distance_links) < max_num_links,
-            new_target not in node.successor_links,
-            new_target not in node.predecessor_links,
-            new_target not in node.long_distance_links,
-            new_target not in potential_targets
-        )
+        # Determine max_num_links based on node category
+        if is_power_node(new_target):
+            new_target_target_max_links = power_max_num_links
+        elif is_regular_node(new_target):
+            new_target_target_max_links = regular_max_num_links
+        elif is_constrained_node(new_target):
+            new_target_target_max_links = constrained_max_num_links
+        else:
+            continue  # Skip if node type is unknown or not categorized
 
-        if all(valid_target_conditions):
-            server_condition = is_server_node(new_target) and len(new_target.long_distance_links) < servers_max_num_links
-            if server_condition or not is_server_node(new_target):
-                potential_targets.append(new_target)
-                count += 1
+        # Check if the new target is a valid potential target based on the max links for its category
+        if (len(new_target.long_distance_links) < new_target_target_max_links and
+            new_target not in node.successor_links and
+            new_target not in node.predecessor_links and
+            new_target not in node.long_distance_links and
+            new_target not in potential_targets):
+            potential_targets.append(new_target)
+            count += 1
 
     return potential_targets
