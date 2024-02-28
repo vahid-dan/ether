@@ -39,31 +39,16 @@ def main(target_selection_strategy='harmonic',
     # Update Vivaldi coordinates based on network interactions for all nodes
     execute_vivaldi(topology, node_filter=lambda n: isinstance(n, Node), min_executions=300)
 
-    overlay_nodes = topology.get_nodes()
-    random_pairs = []
-    for _ in range(num_pairs):
-        source_node = random.choice(overlay_nodes)
-        destination_node = random.choice(overlay_nodes)
-        random_pairs.append((source_node, destination_node))
-
-    print(f"random_pairs {random_pairs}")
-    results = {}
-
-    total_latencies = []
-    total_cell_costs = []
-
-    # Create a dictionary to map pairs to source and destination node names
-    pair_to_nodes = {}
-
-    num_nodes = len(overlay_nodes)
-
-    print(f'Number of Nodes: {num_nodes}')
+    all_nodes = topology.get_nodes()
+    num_all_nodes = len(all_nodes)
+    print(f'Number of All Nodes: {num_all_nodes}')
 
     # Format topology parameters into a string for the filename
     topology_params_str = f"{target_selection_strategy}_{decision_method}_w{weights[0]}-{weights[1]}_nn{num_neighborhoods}_npn{num_nodes_per_neighborhood}_nc{num_cloudlets}_nr{num_racks}_nspr{num_servers_per_rack}_dp{density_params[0]}-{density_params[1]}_menp{metered_edge_nodes_percentage}"
 
     # Initialize the Symphony overlay with these nodes
-    symphony_overlay = SymphonyOverlay(overlay_nodes, seed=SEED)
+    symphony_overlay = SymphonyOverlay(all_nodes, seed=SEED)
+
     symphony_overlay.assign_cell_costs(metered_edge_nodes_percentage)
     symphony_overlay.set_successor_links()
     symphony_overlay.set_long_distance_links(topology=topology,
@@ -71,12 +56,40 @@ def main(target_selection_strategy='harmonic',
                                              decision_method=decision_method,
                                              weights=weights,
                                              is_benefit=[False, False])
+    visualize_symphony_structure(topology)
+
+    symphony_overlay.remove_links_from_constrained_nodes()
+    visualize_symphony_structure(topology)
+
+    symphony_overlay.set_successor_links()
+    visualize_symphony_structure(topology)
+
+    symphony_overlay.remove_overlapping_long_distance_links()
+    visualize_symphony_structure(topology)
+
+    symphony_overlay.set_long_distance_links(topology=topology,
+                                             target_selection_strategy=target_selection_strategy,
+                                             decision_method=decision_method,
+                                             weights=weights,
+                                             is_benefit=[False, False])
+    visualize_symphony_structure(topology)
 
     # visualize_topology(topology)
-
     # print_symphony_structure(symphony_overlay)
 
-    visualize_symphony_structure(topology)
+    switch_nodes = [node for node in topology.get_nodes() if node.role == 'switch']
+
+    random_pairs = []
+    for _ in range(num_pairs):
+        source_node = random.choice(switch_nodes)
+        destination_node = random.choice(switch_nodes)
+        random_pairs.append((source_node, destination_node))
+    print(f"random_pairs {random_pairs}")
+
+    results = {}
+    total_latencies = []
+    total_cell_costs = []
+    pair_to_nodes = {}  # Create a dictionary to map pairs to source and destination node names
 
     for i, (source_node, destination_node) in enumerate(random_pairs, start=1):
         pair_to_nodes[str(i)] = (source_node.name, destination_node.name)
@@ -149,7 +162,7 @@ if __name__ == '__main__':
     results_dir = 'results'
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
-    target_selection_strategy = 'neighborhood'
+    target_selection_strategy = 'harmonic'
     decision_method = "random"
     weights = [1, 1]
     SEED = 0

@@ -16,20 +16,23 @@ class SymphonyOverlay:
         self.nodes = nodes
         for node in self.nodes:
             node.symphony_id = self.generate_symphony_id(node, seed)
+            node.role = 'switch'
         self.initialize_links()
 
 
     def initialize_links(self):
         for node in self.nodes:
-            # Initialize successor links if not already present
-            if not hasattr(node, 'successor_links'):
-                node.successor_links = []
-            # Initialize predecessor links if not already present
-            if not hasattr(node, 'predecessor_links'):
-                node.predecessor_links = []
-            # Initialize long distance links if not already present
-            if not hasattr(node, 'long_distance_links'):
-                node.long_distance_links = []
+            # Check if the node has a 'switch' role before initializing links
+            if node.role == 'switch':
+                # Initialize successor links if not already present
+                if not hasattr(node, 'successor_links'):
+                    node.successor_links = []
+                # Initialize predecessor links if not already present
+                if not hasattr(node, 'predecessor_links'):
+                    node.predecessor_links = []
+                # Initialize long distance links if not already present
+                if not hasattr(node, 'long_distance_links'):
+                    node.long_distance_links = []
 
 
     @staticmethod
@@ -49,26 +52,30 @@ class SymphonyOverlay:
 
     def set_successor_links(self):
         """
-        Set both successor and predecessor links for this node based on the Symphony ring structure.
+        Set both successor and predecessor links for nodes based on the Symphony ring structure. Only nodes with the 'switch' role are included.
         """
-        sorted_nodes = sorted(self.nodes, key=lambda x: x.symphony_id)
-        for i, node in enumerate(sorted_nodes):
-            num_nodes = len(sorted_nodes)
-            node.successor_links = [sorted_nodes[(i + 1) % num_nodes], sorted_nodes[(i + 2) % num_nodes]]
-            node.predecessor_links = [sorted_nodes[(i - 1) % num_nodes], sorted_nodes[(i - 2) % num_nodes]]
+        switch_nodes = [node for node in self.nodes if node.role == 'switch']
+        sorted_switch_nodes = sorted(switch_nodes, key=lambda x: x.symphony_id)
+        num_switch_nodes = len(sorted_switch_nodes)
+
+        for node in sorted_switch_nodes:
+            index = sorted_switch_nodes.index(node)
+            node.successor_links = [sorted_switch_nodes[(index + 1) % num_switch_nodes], sorted_switch_nodes[(index + 2) % num_switch_nodes]]
+            node.predecessor_links = [sorted_switch_nodes[(index - 1) % num_switch_nodes], sorted_switch_nodes[(index - 2) % num_switch_nodes]]
 
 
     def set_long_distance_links(self, topology: Topology, target_selection_strategy: str = 'harmonic', decision_method: str = 'topsis', weights=np.array([1, 1]), is_benefit=np.array([False, False])):
         """
         Randomly select a node and attempt to assign a single link, repeating for a specified number of iterations.
         """
-        sorted_nodes = sorted(self.nodes, key=lambda x: x.symphony_id)
-        num_nodes = len(sorted_nodes)
-        selection_size_factor = round(math.log2(num_nodes))
-        power_max_num_links = round(math.log2(num_nodes)) * 4
-        regular_max_num_links = round(math.log2(num_nodes))
-        constrained_max_num_links = round(math.log2(num_nodes)) // 2
-        total_iterations = int(num_nodes * regular_max_num_links * selection_size_factor / 2)
+        switch_nodes = [node for node in self.nodes if node.role == 'switch']
+        sorted_switch_nodes = sorted(switch_nodes, key=lambda x: x.symphony_id)
+        num_switch_nodes = len(sorted_switch_nodes)
+        selection_size_factor = round(math.log2(num_switch_nodes))
+        power_max_num_links = round(math.log2(num_switch_nodes)) * 4
+        regular_max_num_links = round(math.log2(num_switch_nodes))
+        constrained_max_num_links = round(math.log2(num_switch_nodes)) // 2
+        total_iterations = int(num_switch_nodes * regular_max_num_links * selection_size_factor / 2)
         max_total_links = float('inf')
         total_links_created = 0
 
@@ -79,8 +86,8 @@ class SymphonyOverlay:
                 break
 
             # Randomly select a node
-            node_index = np.random.randint(0, num_nodes)
-            node = sorted_nodes[node_index]
+            node_index = np.random.randint(0, num_switch_nodes)
+            node = sorted_switch_nodes[node_index]
 
             # Determine max_num_links based on node category
             if is_power_node(node):
@@ -98,9 +105,9 @@ class SymphonyOverlay:
 
             # Select potential targets based on the specified strategy
             if target_selection_strategy == 'neighborhood':
-                potential_targets = get_potential_targets_from_neighborhood(sorted_nodes, node, num_nodes, selection_size_factor, power_max_num_links, regular_max_num_links, constrained_max_num_links)
+                potential_targets = get_potential_targets_from_neighborhood(sorted_switch_nodes, node, num_switch_nodes, selection_size_factor, power_max_num_links, regular_max_num_links, constrained_max_num_links)
             elif target_selection_strategy == 'harmonic':
-                potential_targets = get_potential_targets_randomly(sorted_nodes, node, num_nodes, selection_size_factor, power_max_num_links, regular_max_num_links, constrained_max_num_links)
+                potential_targets = get_potential_targets_randomly(sorted_switch_nodes, node, num_switch_nodes, selection_size_factor, power_max_num_links, regular_max_num_links, constrained_max_num_links)
             else:
                 raise ValueError(f"Unknown target selection strategy: {target_selection_strategy}")
 
@@ -137,6 +144,10 @@ class SymphonyOverlay:
         all_links = current_node.successor_links + current_node.predecessor_links + current_node.long_distance_links
         sorted_links = sorted(all_links, key=lambda node: node.symphony_id)
 
+        if not sorted_links:
+            print(f"No link to others from {current_node}")
+            return None
+    
         # Wrap-around case
         if current_node.symphony_id > destination_node.symphony_id:
             closest_node_after_wrap = None
@@ -219,3 +230,42 @@ class SymphonyOverlay:
                 total_latency += topology.latency(node, linked_node, use_coordinates=False)
                 total_cost += linked_node.cell_cost
         return total_latency, total_cost
+
+
+    def remove_links_from_constrained_nodes(self):
+        linked_nodes = {}
+        for node in self.nodes:
+            if is_constrained_node(node):
+                node.role = 'pendant'
+                # Collect all nodes linked to the constrained node
+                linked_nodes = set(node.successor_links + node.predecessor_links + node.long_distance_links)
+                
+                # Clear links from the constrained node
+                node.successor_links.clear()
+                node.predecessor_links.clear()
+                node.long_distance_links.clear()
+                
+                # Remove the constrained node from the link lists of linked nodes
+                for linked_node in linked_nodes:
+                    if node in linked_node.successor_links:
+                        linked_node.successor_links.remove(node)
+                    if node in linked_node.predecessor_links:
+                        linked_node.predecessor_links.remove(node)
+                    if node in linked_node.long_distance_links:
+                        linked_node.long_distance_links.remove(node)
+        
+        print(f"linked_nodes {linked_nodes}")
+        return linked_nodes
+
+
+    def remove_overlapping_long_distance_links(self):
+        """
+        For each node, remove any long-distance links that are already in
+        the successor or predecessor links.
+        """
+        for node in self.nodes:
+            # Combine successor and predecessor links to check for overlaps
+            non_long_distance_links = set(node.successor_links + node.predecessor_links)
+            
+            # Filter out any long-distance links that overlap with successor or predecessor links
+            node.long_distance_links = [link for link in node.long_distance_links if link not in non_long_distance_links]
