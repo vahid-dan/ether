@@ -77,6 +77,8 @@ def visualize_symphony_structure(topology: Topology):
             G.add_edge(node.name, successor.name, type='successor')
         for long_distance in node.long_distance_links:
             G.add_edge(node.name, long_distance.name, type='long_distance')
+        for bridge in node.bridge_links:
+            G.add_edge(node.name, bridge.name, type='bridge')
 
     # Calculate positions
     pos = {}
@@ -104,6 +106,7 @@ def visualize_symphony_structure(topology: Topology):
     # Differentiate between successor and long-distance links
     edges_successor = [(u, v) for (u, v, d) in G.edges(data=True) if d['type'] == 'successor']
     edges_long_distance = [(u, v) for (u, v, d) in G.edges(data=True) if d['type'] == 'long_distance']
+    edges_bridge = [(u, v) for (u, v, d) in G.edges(data=True) if d['type'] == 'bridge']
 
     plt.figure(figsize=(10, 10))
 
@@ -113,6 +116,7 @@ def visualize_symphony_structure(topology: Topology):
     # Draw the edges with different styles
     nx.draw_networkx_edges(G, pos, edgelist=edges_successor, edge_color='b', style='solid')
     nx.draw_networkx_edges(G, pos, edgelist=edges_long_distance, edge_color='y', style='solid')
+    nx.draw_networkx_edges(G, pos, edgelist=edges_bridge, edge_color='g', style='solid')
 
     # Draw node labels with adjusted positions
     nx.draw_networkx_labels(G, pos_labels, font_size=10)

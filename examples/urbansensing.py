@@ -56,22 +56,17 @@ def main(target_selection_strategy='harmonic',
                                              decision_method=decision_method,
                                              weights=weights,
                                              is_benefit=[False, False])
-    visualize_symphony_structure(topology)
-
-    symphony_overlay.remove_links_from_constrained_nodes()
-    visualize_symphony_structure(topology)
-
+    symphony_overlay.remove_links_from_pendant_nodes()
     symphony_overlay.set_successor_links()
-    visualize_symphony_structure(topology)
-
     symphony_overlay.remove_overlapping_long_distance_links()
-    visualize_symphony_structure(topology)
-
     symphony_overlay.set_long_distance_links(topology=topology,
                                              target_selection_strategy=target_selection_strategy,
                                              decision_method=decision_method,
                                              weights=weights,
                                              is_benefit=[False, False])
+    visualize_symphony_structure(topology)
+
+    symphony_overlay.set_bridge_links(topology=topology, weights=weights, is_benefit=[False, False])
     visualize_symphony_structure(topology)
 
     # visualize_topology(topology)

@@ -22,18 +22,15 @@ class SymphonyOverlay:
 
     def initialize_links(self):
         for node in self.nodes:
-            # Check if the node has a 'switch' role before initializing links
             if node.role == 'switch':
-                # Initialize successor links if not already present
                 if not hasattr(node, 'successor_links'):
                     node.successor_links = []
-                # Initialize predecessor links if not already present
                 if not hasattr(node, 'predecessor_links'):
                     node.predecessor_links = []
-                # Initialize long distance links if not already present
                 if not hasattr(node, 'long_distance_links'):
                     node.long_distance_links = []
-
+                if not hasattr(node, 'bridge_links'):
+                    node.bridge_links = []
 
     @staticmethod
     def generate_symphony_id(node: Node, seed=None) -> float:
@@ -80,7 +77,6 @@ class SymphonyOverlay:
         total_links_created = 0
 
         for _ in range(total_iterations):
-            # Check if the network has reached the maximum total number of links
             if total_links_created >= max_total_links:
                 print("Reached the maximum total number of links for the network.")
                 break
@@ -232,7 +228,7 @@ class SymphonyOverlay:
         return total_latency, total_cost
 
 
-    def remove_links_from_constrained_nodes(self):
+    def remove_links_from_pendant_nodes(self):
         linked_nodes = {}
         for node in self.nodes:
             if is_constrained_node(node):
@@ -269,3 +265,23 @@ class SymphonyOverlay:
             
             # Filter out any long-distance links that overlap with successor or predecessor links
             node.long_distance_links = [link for link in node.long_distance_links if link not in non_long_distance_links]
+
+
+    def set_bridge_links(self, topology: Topology, weights=np.array([1, 1]), is_benefit=np.array([False, False])):
+        """
+        Connect each 'pendant' node to the best 'switch' node target based on specified criteria.
+        """
+        pendant_nodes = [node for node in self.nodes if node.role == 'pendant']
+        switch_nodes = [node for node in self.nodes if node.role == 'switch']
+        sorted_switch_nodes = sorted(switch_nodes, key=lambda x: x.symphony_id)
+
+        for pendant_node in pendant_nodes:
+            if sorted_switch_nodes:
+                criteria = [[topology.latency(pendant_node, target, use_coordinates=True), target.cell_cost] for target in sorted_switch_nodes]
+                criteria_matrix = np.array(criteria)
+                best_target_index = decide_topsis(criteria_matrix, weights, is_benefit)
+                best_target = sorted_switch_nodes[best_target_index]
+
+                pendant_node.bridge_links.append(best_target)
+                best_target.bridge_links.append(pendant_node)  # Ensure bidirectional links
+                print(f"Connected pendant node {pendant_node} -----> switch node {best_target}")
