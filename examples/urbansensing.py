@@ -16,7 +16,7 @@ from ether.util import generate_topology, calculate_total_latency, calculate_tot
 
 def main(target_selection_strategy='harmonic',
          decision_method='topsis',
-         weights=[1, 1],
+         weights=np.array([1, 1]),
          num_neighborhoods=3,
          num_nodes_per_neighborhood=5,
          num_cloudlets=2,
@@ -55,7 +55,7 @@ def main(target_selection_strategy='harmonic',
                                              target_selection_strategy=target_selection_strategy,
                                              decision_method=decision_method,
                                              weights=weights,
-                                             is_benefit=[False, False])
+                                             is_benefit=np.array([False, False]))
     symphony_overlay.remove_links_from_pendant_nodes()
     symphony_overlay.set_successor_links()
     symphony_overlay.remove_overlapping_long_distance_links()
@@ -63,14 +63,15 @@ def main(target_selection_strategy='harmonic',
                                              target_selection_strategy=target_selection_strategy,
                                              decision_method=decision_method,
                                              weights=weights,
-                                             is_benefit=[False, False])
-    visualize_symphony_structure(topology)
-
-    symphony_overlay.set_bridge_links(topology=topology, weights=weights, is_benefit=[False, False])
-    visualize_symphony_structure(topology)
+                                             is_benefit=np.array([False, False]))
+    symphony_overlay.set_bridge_links(topology=topology,
+                                      weights=weights,
+                                      is_benefit=np.array([False, False]))
 
     # visualize_topology(topology)
     # print_symphony_structure(symphony_overlay)
+    print(f"path: {symphony_overlay.find_symphony_path(all_nodes[0], all_nodes[1])}")
+    visualize_symphony_structure(topology)
 
     switch_nodes = [node for node in topology.get_nodes() if node.role == 'switch']
 
@@ -79,7 +80,6 @@ def main(target_selection_strategy='harmonic',
         source_node = random.choice(switch_nodes)
         destination_node = random.choice(switch_nodes)
         random_pairs.append((source_node, destination_node))
-    print(f"random_pairs {random_pairs}")
 
     results = {}
     total_latencies = []
@@ -152,14 +152,14 @@ if __name__ == '__main__':
         (nodes.rpi3, 20)
     ]
     density_params = (0.82, 2.02)
-    metered_edge_nodes_percentage = 20
+    metered_edge_nodes_percentage = 40
     num_pairs = 256
     results_dir = 'results'
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
     target_selection_strategy = 'harmonic'
     decision_method = "random"
-    weights = [1, 1]
+    weights = np.array([1, 1])
     SEED = 0
     random.seed(SEED)
     srds.seed(SEED)

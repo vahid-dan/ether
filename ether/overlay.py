@@ -17,6 +17,7 @@ class SymphonyOverlay:
         for node in self.nodes:
             node.symphony_id = self.generate_symphony_id(node, seed)
             node.role = 'switch'
+            node.routing_table = {}
         self.initialize_links()
 
 
@@ -137,10 +138,14 @@ class SymphonyOverlay:
         Find the node closest to the destination in a clockwise direction,
         handling the wrap-around of the ring.
         """
-        all_links = current_node.successor_links + current_node.predecessor_links + current_node.long_distance_links
-        sorted_links = sorted(all_links, key=lambda node: node.symphony_id)
+        all_links = current_node.bridge_links + current_node.successor_links + current_node.predecessor_links + current_node.long_distance_links
+        
+        if destination_node in all_links:
+            return destination_node
+        
+        sorted_all_links = sorted(all_links, key=lambda node: node.symphony_id)
 
-        if not sorted_links:
+        if not sorted_all_links:
             print(f"No link to others from {current_node}")
             return None
     
@@ -149,7 +154,7 @@ class SymphonyOverlay:
             closest_node_after_wrap = None
 
             # Find the node closest to the start of the ring, but before the destination_id
-            for node in sorted_links:
+            for node in sorted_all_links:
                 if node.symphony_id <= destination_node.symphony_id:
                     if closest_node_after_wrap is None or node.symphony_id > closest_node_after_wrap.symphony_id:
                         closest_node_after_wrap = node
@@ -160,16 +165,16 @@ class SymphonyOverlay:
 
             # Otherwise, return the node closest to the end of the ring
             closest_node_to_end = None
-            for node in sorted_links:
+            for node in sorted_all_links:
                 if node.symphony_id > current_node.symphony_id:
                     if closest_node_to_end is None or node.symphony_id > closest_node_to_end.symphony_id:
                         closest_node_to_end = node
 
-            return closest_node_to_end if closest_node_to_end else sorted_links[0]
+            return closest_node_to_end if closest_node_to_end else sorted_all_links[0]
 
         # Normal case: destination is ahead in the ring
         closest_node = None
-        for node in sorted_links:
+        for node in sorted_all_links:
             if node.symphony_id > current_node.symphony_id and (closest_node is None or node.symphony_id <= destination_node.symphony_id and node.symphony_id > closest_node.symphony_id):
                 closest_node = node
 
@@ -177,27 +182,39 @@ class SymphonyOverlay:
             return closest_node
 
         # Fallback: if no node is found, return the first node in the sorted list
-        return sorted_links[0]
+        return sorted_all_links[0]
 
 
     def find_symphony_path(self, start_node, destination_node):
-        """
-        Find the path from this node to the destination_node using Symphony routing.
-        
-        :param destination_node: The end node of the path
-        :param all_nodes: A list of all nodes in the Symphony network
-        :return: A list of nodes representing the path from this node to the destination_node
-        """
         path = [start_node]
         current_node = start_node
+        visited_nodes = set([start_node])
+
+        # Check the source node's routing table for the destination node
+        # If found, it implies a special routing rule exists (e.g., for a pendant node)
+        if destination_node in current_node.routing_table:
+            # The routing table entry maps to the switch node that provides access to the pendant node
+            target_node = current_node.routing_table[destination_node]
+        else:
+            target_node = destination_node
 
         while current_node != destination_node:
-            next_node = self.find_closest_clockwise_node(current_node, destination_node)
+            next_node = self.find_closest_clockwise_node(current_node, target_node)
+            if next_node in visited_nodes or next_node is None:
+                print("Detected a loop or dead end, terminating pathfinding.")
+                break
             path.append(next_node)
+            visited_nodes.add(next_node)  # Mark next_node as visited
             current_node = next_node
 
+            # If the target node was a switch node for a pendant destination,
+            # and we've reached it, directly append the destination node and end the loop
+            if current_node == target_node and target_node != destination_node:
+                path.append(destination_node)
+                break
+
         return path
-    
+
 
     def assign_cell_costs(self, percentage):
         # Filter edge nodes using the is_edge_node function
@@ -285,3 +302,14 @@ class SymphonyOverlay:
                 pendant_node.bridge_links.append(best_target)
                 best_target.bridge_links.append(pendant_node)  # Ensure bidirectional links
                 print(f"Connected pendant node {pendant_node} -----> switch node {best_target}")
+                self.update_routing_tables(pendant_node, best_target)
+
+
+    def update_routing_tables(self, pendant_node, switch_node):
+        """
+        Update the routing table for all nodes to include the path to the pendant node via the switch node.
+        """
+        for node in self.nodes:
+            # Update the routing table to reflect the bridge link for pendant nodes
+            # This maps the pendant node to its accessible switch node for all nodes in the network
+            node.routing_table[pendant_node] = switch_node
