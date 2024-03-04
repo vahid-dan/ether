@@ -12,6 +12,7 @@ from ether.vis import visualize_symphony_structure, visualize_topology, print_sy
 from ether.overlay import SymphonyOverlay
 from examples.vivaldi.util import execute_vivaldi
 from ether.util import generate_topology, calculate_total_latency, calculate_total_cell_cost
+from ether.simulation import NetworkSimulation
 
 
 def main(target_selection_strategy='harmonic',
@@ -56,6 +57,8 @@ def main(target_selection_strategy='harmonic',
                                              decision_method=decision_method,
                                              weights=weights,
                                              is_benefit=np.array([False, False]))
+    # visualize_symphony_structure(topology)
+
     symphony_overlay.remove_links_from_pendant_nodes()
     symphony_overlay.set_successor_links()
     symphony_overlay.remove_overlapping_long_distance_links()
@@ -70,7 +73,7 @@ def main(target_selection_strategy='harmonic',
 
     # visualize_topology(topology)
     # print_symphony_structure(symphony_overlay)
-    print(f"path: {symphony_overlay.find_symphony_path(all_nodes[0], all_nodes[1])}")
+    # print(f"path: {symphony_overlay.find_symphony_path(all_nodes[0], all_nodes[1])}")
     visualize_symphony_structure(topology)
 
     switch_nodes = [node for node in topology.get_nodes() if node.role == 'switch']
@@ -141,26 +144,30 @@ def main(target_selection_strategy='harmonic',
     print(f"Randomness Check {random.random()}")
 
 
+    simulation = NetworkSimulation(symphony_overlay)
+    simulation.simulate_application_traffic()
+    print(simulation.traffic_matrix)
+
 if __name__ == '__main__':
     num_neighborhoods = 2
-    num_nodes_per_neighborhood = 5
+    num_nodes_per_neighborhood = 7
     num_cloudlets = 2
     num_racks = 1
-    num_servers_per_rack = 2
+    num_servers_per_rack = 1
     node_types_and_shares = [
         (nodes.rpi4, 80),
         (nodes.rpi3, 20)
     ]
     density_params = (0.82, 2.02)
     metered_edge_nodes_percentage = 40
-    num_pairs = 256
+    num_pairs = 10
     results_dir = 'results'
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
     target_selection_strategy = 'harmonic'
     decision_method = "random"
     weights = np.array([1, 1])
-    SEED = 0
+    SEED = 5
     random.seed(SEED)
     srds.seed(SEED)
     np.random.seed(SEED)

@@ -70,9 +70,9 @@ class SymphonyOverlay:
         sorted_switch_nodes = sorted(switch_nodes, key=lambda x: x.symphony_id)
         num_switch_nodes = len(sorted_switch_nodes)
         selection_size_factor = round(math.log2(num_switch_nodes))
-        power_max_num_links = round(math.log2(num_switch_nodes)) * 4
-        regular_max_num_links = round(math.log2(num_switch_nodes))
-        constrained_max_num_links = round(math.log2(num_switch_nodes)) // 2
+        power_max_num_links = round(math.log2(num_switch_nodes)) // 2
+        regular_max_num_links = round(math.log2(num_switch_nodes)) // 4
+        constrained_max_num_links = round(math.log2(num_switch_nodes)) // 4
         total_iterations = int(num_switch_nodes * regular_max_num_links * selection_size_factor / 2)
         max_total_links = float('inf')
         total_links_created = 0
@@ -246,8 +246,8 @@ class SymphonyOverlay:
 
 
     def remove_links_from_pendant_nodes(self):
-        linked_nodes = {}
         for node in self.nodes:
+            linked_nodes = {}
             if is_constrained_node(node):
                 node.role = 'pendant'
                 # Collect all nodes linked to the constrained node
