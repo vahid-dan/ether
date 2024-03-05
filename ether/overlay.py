@@ -139,14 +139,15 @@ class SymphonyOverlay:
         handling the wrap-around of the ring.
         """
         all_links = current_node.bridge_links + current_node.successor_links + current_node.predecessor_links + current_node.long_distance_links
-        
+        all_switch_links = current_node.successor_links + current_node.predecessor_links + current_node.long_distance_links
+
         if destination_node in all_links:
             return destination_node
         
-        sorted_all_links = sorted(all_links, key=lambda node: node.symphony_id)
+        sorted_all_switch_links = sorted(all_switch_links, key=lambda node: node.symphony_id)
 
-        if not sorted_all_links:
-            print(f"No link to others from {current_node}")
+        if not sorted_all_switch_links:
+            print(f"!!! WARNING !!!: No link to others from {current_node}")
             return None
     
         # Wrap-around case
@@ -154,7 +155,7 @@ class SymphonyOverlay:
             closest_node_after_wrap = None
 
             # Find the node closest to the start of the ring, but before the destination_id
-            for node in sorted_all_links:
+            for node in sorted_all_switch_links:
                 if node.symphony_id <= destination_node.symphony_id:
                     if closest_node_after_wrap is None or node.symphony_id > closest_node_after_wrap.symphony_id:
                         closest_node_after_wrap = node
@@ -165,16 +166,16 @@ class SymphonyOverlay:
 
             # Otherwise, return the node closest to the end of the ring
             closest_node_to_end = None
-            for node in sorted_all_links:
+            for node in sorted_all_switch_links:
                 if node.symphony_id > current_node.symphony_id:
                     if closest_node_to_end is None or node.symphony_id > closest_node_to_end.symphony_id:
                         closest_node_to_end = node
 
-            return closest_node_to_end if closest_node_to_end else sorted_all_links[0]
+            return closest_node_to_end if closest_node_to_end else sorted_all_switch_links[0]
 
         # Normal case: destination is ahead in the ring
         closest_node = None
-        for node in sorted_all_links:
+        for node in sorted_all_switch_links:
             if node.symphony_id > current_node.symphony_id and (closest_node is None or node.symphony_id <= destination_node.symphony_id and node.symphony_id > closest_node.symphony_id):
                 closest_node = node
 
@@ -182,7 +183,7 @@ class SymphonyOverlay:
             return closest_node
 
         # Fallback: if no node is found, return the first node in the sorted list
-        return sorted_all_links[0]
+        return sorted_all_switch_links[0]
 
 
     def find_symphony_path(self, start_node, destination_node):
@@ -192,16 +193,21 @@ class SymphonyOverlay:
 
         # Check the source node's routing table for the destination node
         # If found, it implies a special routing rule exists (e.g., for a pendant node)
-        if destination_node in current_node.routing_table:
-            # The routing table entry maps to the switch node that provides access to the pendant node
-            target_node = current_node.routing_table[destination_node]
-        else:
-            target_node = destination_node
+        if current_node != destination_node:
+
+            if current_node in current_node.routing_table:
+                current_node = current_node.routing_table[current_node]
+
+            if destination_node in current_node.routing_table:
+                # The routing table entry maps to the switch node that provides access to the pendant node
+                target_node = current_node.routing_table[destination_node]
+            else:
+                target_node = destination_node
 
         while current_node != destination_node:
             next_node = self.find_closest_clockwise_node(current_node, target_node)
             if next_node in visited_nodes or next_node is None:
-                print("Detected a loop or dead end, terminating pathfinding.")
+                print("!!! WARNING !!!: Detected a loop or dead end, terminating pathfinding.")
                 break
             path.append(next_node)
             visited_nodes.add(next_node)  # Mark next_node as visited
