@@ -69,6 +69,17 @@ def create_server_node(name=None, location_id=None) -> Node:
                        location_id=location_id)
 
 
+def create_cloud_server_node(name=None) -> Node:
+    name = name if name is not None else 'cloud_server_%d' % next(counters['cloud_server'])
+
+    return create_node(name=name,
+                       cpus=96, arch='x86', mem='256G',
+                       labels={
+                           'ether.edgerun.io/type': 'cloud_server',
+                           'ether.edgerun.io/model': 'cloud_server'
+                       })
+
+
 def create_rpi3_node(name=None) -> Node:
     name = name if name is not None else 'rpi3_%d' % next(counters['rpi3'])
 

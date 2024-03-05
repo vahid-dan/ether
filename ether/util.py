@@ -2,7 +2,7 @@ import numpy as np
 import srds
 from random import choices
 
-from ether.blocks.cells import IoTComputeBox, Cloudlet, FiberToExchange, MobileConnection
+from ether.blocks.cells import IoTComputeBox, Cloudlet, Cloud, FiberToExchange, MobileConnection
 from ether.cell import GeoCell
 from ether.core import Node, Link
 from ether.topology import Topology
@@ -25,6 +25,8 @@ def generate_topology(num_neighborhoods,
                       num_cloudlets,
                       num_racks,
                       num_servers_per_rack,
+                      num_cloud_racks,
+                      num_cloud_servers_per_rack,
                       node_types_and_shares,
                       density_params):
     topology = Topology()
@@ -57,14 +59,27 @@ def generate_topology(num_neighborhoods,
         return cloudlets    
 
 
+    def create_cloud():
+        cloud = Cloud(
+            num_cloud_servers_per_rack,
+            num_cloud_racks,
+            backhaul=FiberToExchange('internet_chix'))
+        return cloud
+
+
     city = GeoCell(
         num_neighborhoods,
         nodes=create_neighborhoods(num_nodes_per_neighborhood),
         density=lognorm(density_params))
     
     topology.add(city)
+
     for cloudlet in create_cloudlets(num_cloudlets):
         topology.add(cloudlet)
+
+    cloud = create_cloud()
+    topology.add(cloud)
+
     return topology
 
 
@@ -193,6 +208,10 @@ def print_location_ids(nodes):
 
 def is_server_node(node: Node) -> bool:
     return node.labels.get('ether.edgerun.io/type') == 'server'
+
+
+def is_cloud_server_node(node: Node) -> bool:
+    return node.labels.get('ether.edgerun.io/type') == 'cloud_server'
 
 
 def is_edge_node(node: Node) -> bool:

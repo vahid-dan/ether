@@ -23,6 +23,8 @@ def main(target_selection_strategy='harmonic',
          num_cloudlets=2,
          num_racks=2,
          num_servers_per_rack=4,
+         num_cloud_racks=1,
+         num_cloud_servers_per_rack=1,
          node_types_and_shares=[(nodes.rpi4, 95), (nodes.rpi3, 5)],
          density_params=(0.82, 2.02),
          metered_edge_nodes_percentage=50,
@@ -34,6 +36,8 @@ def main(target_selection_strategy='harmonic',
                                  num_cloudlets,
                                  num_racks,
                                  num_servers_per_rack,
+                                 num_cloud_racks,
+                                 num_cloud_servers_per_rack,
                                  node_types_and_shares,
                                  density_params)
 
@@ -71,17 +75,15 @@ def main(target_selection_strategy='harmonic',
                                       weights=weights,
                                       is_benefit=np.array([False, False]))
 
-    # visualize_topology(topology)
+    visualize_topology(topology)
     # print_symphony_structure(symphony_overlay)
     # print(f"path: {symphony_overlay.find_symphony_path(all_nodes[0], all_nodes[1])}")
     visualize_symphony_structure(topology)
 
-    switch_nodes = [node for node in topology.get_nodes() if node.role == 'switch']
-
     random_pairs = []
     for _ in range(num_pairs):
-        source_node = random.choice(switch_nodes)
-        destination_node = random.choice(switch_nodes)
+        source_node = random.choice(all_nodes)
+        destination_node = random.choice(all_nodes)
         random_pairs.append((source_node, destination_node))
 
     results = {}
@@ -143,7 +145,6 @@ def main(target_selection_strategy='harmonic',
 
     print(f"Randomness Check {random.random()}")
 
-
     simulation = NetworkSimulation(symphony_overlay)
     simulation.simulate_application_traffic()
     print(simulation.traffic_matrix)
@@ -153,21 +154,23 @@ if __name__ == '__main__':
     num_nodes_per_neighborhood = 7
     num_cloudlets = 2
     num_racks = 1
-    num_servers_per_rack = 1
+    num_servers_per_rack = 2
+    num_cloud_racks=1
+    num_cloud_servers_per_rack=1
     node_types_and_shares = [
-        (nodes.rpi4, 80),
-        (nodes.rpi3, 20)
+        (nodes.rpi4, 90),
+        (nodes.rpi3, 10)
     ]
     density_params = (0.82, 2.02)
     metered_edge_nodes_percentage = 40
-    num_pairs = 10
+    num_pairs = 100
     results_dir = 'results'
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
     target_selection_strategy = 'harmonic'
     decision_method = "random"
     weights = np.array([1, 1])
-    SEED = 5
+    SEED = 2
     random.seed(SEED)
     srds.seed(SEED)
     np.random.seed(SEED)
@@ -179,6 +182,8 @@ if __name__ == '__main__':
          num_cloudlets,
          num_racks,
          num_servers_per_rack,
+         num_cloud_racks,
+         num_cloud_servers_per_rack,
          node_types_and_shares,
          density_params,
          metered_edge_nodes_percentage,
