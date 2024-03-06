@@ -190,35 +190,36 @@ class SymphonyOverlay:
         path = [start_node]
         current_node = start_node
         visited_nodes = set([start_node])
+        print(f"current_node -----> destination_node {current_node} -----> {destination_node}")
 
-        # Check the source node's routing table for the destination node
-        # If found, it implies a special routing rule exists (e.g., for a pendant node)
-        if current_node != destination_node:
+        # Check if the start node is a pendant and adjust the current_node accordingly
+        if start_node in start_node.routing_table:
+            # This implies the start node is a pendant and should be routed through its associated switch node
+            current_node = start_node.routing_table[start_node]
+            path.append(current_node)  # Append the switch node to the path
+            visited_nodes.add(current_node)
 
-            if current_node in current_node.routing_table:
-                current_node = current_node.routing_table[current_node]
+        # Determine the target node based on the destination node's status (pendant or switch)
+        target_node = destination_node
+        if destination_node in current_node.routing_table:
+            # If the destination node is a pendant, the target node is its associated switch node
+            target_node = current_node.routing_table[destination_node]
 
-            if destination_node in current_node.routing_table:
-                # The routing table entry maps to the switch node that provides access to the pendant node
-                target_node = current_node.routing_table[destination_node]
-            else:
-                target_node = destination_node
-
-        while current_node != destination_node:
+        while current_node != target_node:
             next_node = self.find_closest_clockwise_node(current_node, target_node)
-            if next_node in visited_nodes or next_node is None:
-                print("!!! WARNING !!!: Detected a loop or dead end, terminating pathfinding.")
-                break
+            if next_node in visited_nodes:
+                raise ValueError("Loop detected, terminating pathfinding.")
+            if next_node is None:
+                raise ValueError("Dead-end reached, terminating pathfinding.")
             path.append(next_node)
-            visited_nodes.add(next_node)  # Mark next_node as visited
+            visited_nodes.add(next_node)
             current_node = next_node
 
-            # If the target node was a switch node for a pendant destination,
-            # and we've reached it, directly append the destination node and end the loop
-            if current_node == target_node and target_node != destination_node:
-                path.append(destination_node)
-                break
+        # If the destination node is a pendant and not yet in the path, append it
+        if target_node != destination_node:
+            path.append(destination_node)
 
+        print(f"path {path}")
         return path
 
 
