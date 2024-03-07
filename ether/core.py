@@ -74,20 +74,18 @@ class Node:
     A node is a machine in the network that can run compute tasks, manage data, and exchanges data with other nodes.
     """
     name: str
-    location_id: Optional[str]
     capacity: Capacity
     arch: str
     labels: Dict[str, str]
     coordinate: Optional[Coordinate]
 
-    def __init__(self, name: str, capacity: Capacity = None, arch='x86', labels: Dict[str, str] = None, location_id: Optional[str] = None) -> None:
+    def __init__(self, name: str, capacity: Capacity = None, arch='x86', labels: Dict[str, str] = None) -> None:
         super().__init__()
         self.name = name
         self.capacity = capacity or Capacity()
         self.arch = arch
         self.labels = labels or dict()
         self.coordinate = None
-        self.location_id = location_id
 
     def __repr__(self):
         return self.name

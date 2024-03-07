@@ -100,8 +100,9 @@ class Broker(Host):
 
 class LANCell(Cell):
 
-    def __init__(self, nodes, backhaul=None, location_id=None) -> None:
+    def __init__(self, nodes, backhaul=None, location_id=None, processing_power=0) -> None:
         self.location_id = location_id
+        self.processing_power = processing_power
         super().__init__(nodes=nodes, backhaul=backhaul)
 
     def _create_identity(self):
