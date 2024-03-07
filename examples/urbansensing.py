@@ -1,6 +1,7 @@
 import math
 import random
 import numpy as np
+import pandas as pd
 import srds
 import os
 import csv
@@ -23,7 +24,7 @@ def main(target_selection_strategy='harmonic',
          num_cloudlets=2,
          num_racks=2,
          num_servers_per_rack=4,
-         processing_power=100,
+         workload_quota=100,
          num_cloud_racks=1,
          num_cloud_servers_per_rack=1,
          node_types_and_shares=[(nodes.rpi4, 95), (nodes.rpi3, 5)],
@@ -37,7 +38,7 @@ def main(target_selection_strategy='harmonic',
                                  num_cloudlets,
                                  num_racks,
                                  num_servers_per_rack,
-                                 processing_power,
+                                 workload_quota,
                                  num_cloud_racks,
                                  num_cloud_servers_per_rack,
                                  node_types_and_shares,
@@ -86,7 +87,7 @@ def main(target_selection_strategy='harmonic',
     for _ in range(num_pairs):
         source_node = random.choice(all_nodes)
         print(f"source_node.capacity {source_node.capacity}")
-        print(f"source_node.processing_power {getattr(source_node, 'processing_power', 0)}")
+        print(f"source_node.workload_quota {getattr(source_node, 'workload_quota', 0)}")
         print(f"source_node.location_id {getattr(source_node, 'location_id', None)}")
         destination_node = random.choice(all_nodes)
         random_pairs.append((source_node, destination_node))
@@ -150,17 +151,17 @@ def main(target_selection_strategy='harmonic',
 
     print(f"Randomness Check {random.random()}")
 
-    # simulation = NetworkSimulation(symphony_overlay)
-    # simulation.simulate_application_traffic()
-    # print(simulation.traffic_matrix)
+    simulation = NetworkSimulation(symphony_overlay)
+    simulation.simulate_application_traffic()
+    simulation.print_traffic_matrix()
 
 if __name__ == '__main__':
     num_neighborhoods = 2
-    num_nodes_per_neighborhood = 7
-    num_cloudlets = 2
+    num_nodes_per_neighborhood = 4
+    num_cloudlets = 1
     num_racks = 1
     num_servers_per_rack = 2
-    processing_power = 100
+    workload_quota = 150
     num_cloud_racks=1
     num_cloud_servers_per_rack=1
     node_types_and_shares = [
@@ -174,7 +175,7 @@ if __name__ == '__main__':
     if not os.path.exists(results_dir):
         os.makedirs(results_dir)
     target_selection_strategy = 'harmonic'
-    decision_method = "random"
+    decision_method = "topsis"
     weights = np.array([1, 1])
     SEED = 2
     random.seed(SEED)
@@ -188,7 +189,7 @@ if __name__ == '__main__':
          num_cloudlets,
          num_racks,
          num_servers_per_rack,
-         processing_power,
+         workload_quota,
          num_cloud_racks,
          num_cloud_servers_per_rack,
          node_types_and_shares,

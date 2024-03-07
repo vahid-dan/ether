@@ -127,7 +127,6 @@ class SymphonyOverlay:
                 total_links_created += 1
                 if total_links_created >= max_total_links:
                     print(f"Reached max_total_links {max_total_links}")
-                print(f"Link {node} -----> {best_target}")
 
         print(f"total_links_created {total_links_created}")
         return
@@ -190,7 +189,6 @@ class SymphonyOverlay:
         path = [start_node]
         current_node = start_node
         visited_nodes = set([start_node])
-        print(f"current_node -----> destination_node {current_node} -----> {destination_node}")
 
         # Check if the start node is a pendant and adjust the current_node accordingly
         if start_node in start_node.routing_table:
@@ -308,7 +306,6 @@ class SymphonyOverlay:
 
                 pendant_node.bridge_links.append(best_target)
                 best_target.bridge_links.append(pendant_node)  # Ensure bidirectional links
-                print(f"Connected pendant node {pendant_node} -----> switch node {best_target}")
                 self.update_routing_tables(pendant_node, best_target)
 
 

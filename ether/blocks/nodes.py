@@ -57,7 +57,7 @@ def create_vm_node(name=None) -> Node:
                        })
 
 
-def create_server_node(name=None, location_id=None, processing_power=0) -> Node:
+def create_server_node(name=None, location_id=None, workload_quota=0) -> Node:
     name = name if name is not None else 'server_%d' % next(counters['server'])
 
     return create_node(name=name,
@@ -67,7 +67,7 @@ def create_server_node(name=None, location_id=None, processing_power=0) -> Node:
                            'ether.edgerun.io/model': 'server'
                        },
                        location_id=location_id,
-                       processing_power=processing_power)
+                       workload_quota=workload_quota)
 
 
 def create_cloud_server_node(name=None) -> Node:
@@ -179,13 +179,13 @@ def create_nx(name=None) -> Node:
 
 
 def create_node(name: str, cpus: int, mem: str, arch: str, labels: Dict[str, str],
-                location_id: Optional[str] = None, processing_power: Optional[int] = 0) -> Node:
+                location_id: Optional[str] = None, workload_quota: Optional[int] = 0) -> Node:
     capacity = Capacity(cpu_millis=cpus * 1000, memory=parse_size_string(mem))
     node = Node(name=name, capacity=capacity, arch=arch, labels=labels)
     if location_id:
         node.location_id = location_id
-    if processing_power:
-        node.processing_power = processing_power
+    if workload_quota:
+        node.workload_quota = workload_quota
     return node
 
 

@@ -25,7 +25,7 @@ def generate_topology(num_neighborhoods,
                       num_cloudlets,
                       num_racks,
                       num_servers_per_rack,
-                      processing_power,
+                      workload_quota,
                       num_cloud_racks,
                       num_cloud_servers_per_rack,
                       node_types_and_shares,
@@ -47,7 +47,7 @@ def generate_topology(num_neighborhoods,
         return neighborhood_nodes
 
 
-    def create_cloudlets(count, processing_power):
+    def create_cloudlets(count, workload_quota):
         cloudlets = []
         for i in range(count):
             location_id = str(i)
@@ -56,7 +56,7 @@ def generate_topology(num_neighborhoods,
                 num_racks,
                 backhaul=FiberToExchange('internet_chix'),
                 location_id=location_id,
-                processing_power=processing_power)
+                workload_quota=workload_quota)
             cloudlets.append(cloudlet)
         return cloudlets    
 
@@ -76,7 +76,7 @@ def generate_topology(num_neighborhoods,
     
     topology.add(city)
 
-    for cloudlet in create_cloudlets(num_cloudlets, processing_power):
+    for cloudlet in create_cloudlets(num_cloudlets, workload_quota):
         topology.add(cloudlet)
 
     cloud = create_cloud()
