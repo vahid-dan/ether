@@ -1,4 +1,3 @@
-import math
 import random
 import numpy as np
 import pandas as pd
@@ -87,6 +86,7 @@ def main(target_selection_strategy='harmonic',
     for _ in range(num_pairs):
         source_node = random.choice(all_nodes)
         print(f"source_node.capacity {source_node.capacity}")
+        print(f"source_node.processing_power {source_node.processing_power}")
         print(f"source_node.workload_quota {getattr(source_node, 'workload_quota', 0)}")
         print(f"source_node.location_id {getattr(source_node, 'location_id', None)}")
         destination_node = random.choice(all_nodes)
@@ -158,7 +158,7 @@ def main(target_selection_strategy='harmonic',
 if __name__ == '__main__':
     num_neighborhoods = 2
     num_nodes_per_neighborhood = 4
-    num_cloudlets = 1
+    num_cloudlets = 3
     num_racks = 1
     num_servers_per_rack = 2
     workload_quota = 150

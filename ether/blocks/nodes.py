@@ -70,7 +70,7 @@ def create_server_node(name=None, location_id=None, workload_quota=0) -> Node:
                        workload_quota=workload_quota)
 
 
-def create_cloud_server_node(name=None) -> Node:
+def create_cloud_server_node(name=None, workload_quota=float('inf')) -> Node:
     name = name if name is not None else 'cloud_server_%d' % next(counters['cloud_server'])
 
     return create_node(name=name,
@@ -78,7 +78,8 @@ def create_cloud_server_node(name=None) -> Node:
                        labels={
                            'ether.edgerun.io/type': 'cloud_server',
                            'ether.edgerun.io/model': 'cloud_server'
-                       })
+                       },
+                       workload_quota=workload_quota)
 
 
 def create_rpi3_node(name=None) -> Node:
@@ -182,6 +183,13 @@ def create_node(name: str, cpus: int, mem: str, arch: str, labels: Dict[str, str
                 location_id: Optional[str] = None, workload_quota: Optional[int] = 0) -> Node:
     capacity = Capacity(cpu_millis=cpus * 1000, memory=parse_size_string(mem))
     node = Node(name=name, capacity=capacity, arch=arch, labels=labels)
+
+    cpu_weight = 4
+    cpu_power_units = cpus * cpu_weight
+    memory_power_units = parse_size_string(mem) / 1000 / 1000 / 1000  # Convert Bytes to GigaBytes
+    processing_power = cpu_power_units * memory_power_units
+    node.processing_power = processing_power
+
     if location_id:
         node.location_id = location_id
     if workload_quota:
