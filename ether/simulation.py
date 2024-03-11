@@ -157,3 +157,28 @@ class NetworkSimulation:
         for node in self.sorted_nodes:
             if hasattr(node, 'workload_quota'):
                 print(f"{node} workload_quota {node.workload_quota}")
+
+
+    def calculate_and_update_node_costs(self, cost_per_unit):
+        """
+        Calculates and updates the cost for each node based on the application traffic matrix
+        and a given cost per unit of data transferred.
+        """
+        node_costs = {node.name: 0 for node in self.sorted_nodes}
+
+        # Iterate through the traffic matrix to calculate the total data transferred
+        for source_node_name in self.traffic_matrix.index:
+            for destination_node_name in self.traffic_matrix.columns:
+                data_transferred = self.traffic_matrix.at[source_node_name, destination_node_name]
+                source_node = next((node for node in self.sorted_nodes if node.name == source_node_name), None)
+                
+                # Check if the source node has cell_cost == 1 and update its cost
+                if source_node and getattr(source_node, 'cell_cost', 0) == 1:
+                    node_costs[source_node_name] += data_transferred * cost_per_unit
+
+        for node in self.sorted_nodes:
+            if node.name in node_costs:
+                setattr(node, 'cost', node_costs[node.name])
+
+        for node_name, cost in node_costs.items():
+            print(f"Node {node_name} cost: {cost}")

@@ -30,7 +30,8 @@ def main(target_selection_strategy='harmonic',
          density_params=(0.82, 2.02),
          metered_edge_nodes_percentage=50,
          num_pairs=10,
-         results_dir="results"):
+         results_dir="results",
+         cost_per_unit=1):
 
     topology = generate_topology(num_neighborhoods,
                                  num_nodes_per_neighborhood,
@@ -154,6 +155,7 @@ def main(target_selection_strategy='harmonic',
     simulation = NetworkSimulation(symphony_overlay)
     simulation.simulate_application_traffic()
     simulation.print_traffic_matrix()
+    simulation.calculate_and_update_node_costs(cost_per_unit)
 
 if __name__ == '__main__':
     num_neighborhoods = 2
@@ -177,6 +179,7 @@ if __name__ == '__main__':
     target_selection_strategy = 'harmonic'
     decision_method = "topsis"
     weights = np.array([1, 1])
+    cost_per_unit = 0.1
     SEED = 2
     random.seed(SEED)
     srds.seed(SEED)
@@ -196,4 +199,5 @@ if __name__ == '__main__':
          density_params,
          metered_edge_nodes_percentage,
          num_pairs,
-         results_dir)
+         results_dir,
+         cost_per_unit)
