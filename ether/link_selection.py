@@ -133,7 +133,6 @@ def decide_topsis(criteria_matrix, weights, is_benefit):
     Decide the best target using the TOPSIS method.
     """
     scores = topsis(criteria_matrix, weights, is_benefit)
-    print(f"scores {scores}")
     best_target_index = np.argmax(scores)
     return best_target_index
 

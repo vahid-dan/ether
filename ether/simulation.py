@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from ether.util import is_server_node, is_edge_node, is_cloud_server_node
+from ether.link_selection import decide_topsis
+from ether.topology import Topology
 
 
 class NetworkSimulation:
@@ -18,7 +20,11 @@ class NetworkSimulation:
                                            index=node_names, columns=node_names)
 
 
-    def simulate_application_traffic(self):
+    def simulate_application_traffic(self,
+                                     topology: Topology,
+                                     select_server_decision_method='topsis',
+                                     select_server_weights=np.array([1, 1]),
+                                     select_server_is_benefit=np.array([True, False])):
         """
         Simulates sending data from each edge node to the nearest available server node it can find.
         """
@@ -26,7 +32,11 @@ class NetworkSimulation:
         for node in self.sorted_nodes:
             if is_edge_node(node):
                 print(f"----- {node} -----")
-                transfer_type, nearest_server_node = self.determine_transfer_type_and_server(node)
+                transfer_type, nearest_server_node = self.determine_transfer_type_and_server(topology=topology,
+                                                                                             node=node,
+                                                                                             select_server_decision_method=select_server_decision_method,
+                                                                                             select_server_weights=select_server_weights,
+                                                                                             select_server_is_benefit=select_server_is_benefit)
                 if nearest_server_node:
                     # Update the server node's processing power based on the task assigned
                     self.update_server_workload_quota(nearest_server_node, transfer_type)
@@ -36,24 +46,33 @@ class NetworkSimulation:
                     self.assign_final_step_task(nearest_server_node)
 
 
-    def determine_transfer_type_and_server(self, edge_node):
+    def determine_transfer_type_and_server(self,
+                                           topology: Topology,
+                                           node,
+                                           select_server_decision_method,
+                                           select_server_weights,
+                                           select_server_is_benefit):
         """
         Determines the transfer type and finds the nearest server node based on workload_quota.
         """
-        nearest_server_node = self.find_nearest_server_node(edge_node)
+        nearest_server_node = self.find_nearest_server_node(topology,
+                                                            node,
+                                                            select_server_decision_method,
+                                                            select_server_weights,
+                                                            select_server_is_benefit)
         if nearest_server_node:
             print(f"nearest_server_node {nearest_server_node}")
             # Check the processing power for the nearest server node and determine transfer type
             if self.has_sufficient_workload_quota(nearest_server_node, self.workload_sizes["high"]):
-                print("high")
+                print("first server found, high")
                 return ("high", nearest_server_node)
             elif self.has_sufficient_workload_quota(nearest_server_node, self.workload_sizes["low"]):
-                print("low")
+                print("first server found, low")
                 return ("low", nearest_server_node)
             else:
                 # Find the next server node with enough processing power for low res
                 print("not enough quota in the first server, looking for the next.")
-                next_server_node = self.find_next_server_node(edge_node, self.workload_sizes["low"])
+                next_server_node = self.find_next_server_node(node, self.workload_sizes["low"])
                 if next_server_node:
                     print("next server found")
                     return ("low", next_server_node)
@@ -66,28 +85,64 @@ class NetworkSimulation:
         return server_node.workload_quota >= required_workload_quota
     
 
-    def find_nearest_server_node(self, edge_node):
+    def find_nearest_server_node(self,
+                                 topology: Topology,
+                                 node,
+                                 select_server_decision_method,
+                                 select_server_weights,
+                                 select_server_is_benefit):
         """
-        Finds the nearest server node.
+        Finds the nearest server node using a specified decision method.
         """
-        print(f"edge_node {edge_node} aiming for first server")
-        neighbors = set(edge_node.bridge_links + edge_node.successor_links + edge_node.predecessor_links + edge_node.long_distance_links)
+        print(f"node {node} aiming for first server")
+        neighbors = set([node] + node.bridge_links + node.successor_links + node.predecessor_links + node.long_distance_links)
         print(f"neighbors {neighbors}")
-        for neighbor in neighbors:
-            if is_server_node(neighbor):
-                print(f"found server in neighbors {neighbor}")
-                return neighbor
-        print("no neighbor server")
 
-        # Check if the node is a pendant node and move to its connected switch node
-        if edge_node.role == 'pendant':
-            print("edge node pendant")
-            return self.find_nearest_server_node(edge_node.bridge_links[0])
-        
-        if edge_node.successor_links:
-            first_successor = edge_node.successor_links[0]
-            print("move to first successor {first_successor}")
-            return self.find_nearest_server_node(first_successor)
+        # Filter neighbors to include only server nodes
+        server_neighbors = [neighbor for neighbor in neighbors if is_server_node(neighbor)]
+
+        if server_neighbors:
+            # If there are server nodes among the neighbors, decide on the nearest based on the decision method
+            if select_server_decision_method == 'topsis':
+                # Example criteria: [(latency, processing_power), ...]
+                criteria = [(topology.latency(node, server, use_coordinates=True), server.processing_power) for server in server_neighbors]
+                criteria_matrix = np.array(criteria)
+                best_target_index = decide_topsis(criteria_matrix, select_server_weights, select_server_is_benefit)
+                best_server = server_neighbors[best_target_index]
+                print(f"Selected server using TOPSIS: {best_server}")
+                return best_server
+            elif select_server_decision_method == 'random':
+                # Randomly select a server from the neighbors
+                best_server = np.random.choice(server_neighbors)
+                print(f"Selected server randomly: {best_server}")
+                return best_server
+            else:
+                raise ValueError(f"Unknown decision method: {select_server_decision_method}")
+        else:
+            print("No server node among immediate neighbors. Expanding search...")
+
+            # Expand search beyond immediate neighbors
+            # Check if the node is a pendant node and move to its connected switch node
+            if node.role == 'pendant':
+                print("edge node pendant")
+                return self.find_nearest_server_node(topology,
+                                                     node.bridge_links[0],
+                                                     select_server_decision_method,
+                                                     select_server_weights,
+                                                     select_server_is_benefit)
+                    
+            elif node.successor_links:
+                first_successor = node.successor_links[0]
+                print("move to first successor {first_successor}")
+                return self.find_nearest_server_node(topology,
+                                                     first_successor,
+                                                     select_server_decision_method,
+                                                     select_server_weights,
+                                                     select_server_is_benefit)
+
+        # Fallback if no server found in neighbors and expanded search is not implemented
+        print("!!! WARNING !!! No suitable server found")
+        return None
 
 
     def find_next_server_node(self, edge_node, required_workload_quota):
@@ -164,21 +219,19 @@ class NetworkSimulation:
         Calculates and updates the cost for each node based on the application traffic matrix
         and a given cost per unit of data transferred.
         """
-        node_costs = {node.name: 0 for node in self.sorted_nodes}
-
-        # Iterate through the traffic matrix to calculate the total data transferred
         for source_node_name in self.traffic_matrix.index:
             for destination_node_name in self.traffic_matrix.columns:
                 data_transferred = self.traffic_matrix.at[source_node_name, destination_node_name]
                 source_node = next((node for node in self.sorted_nodes if node.name == source_node_name), None)
                 
-                # Check if the source node has cell_cost == 1 and update its cost
-                if source_node and getattr(source_node, 'cell_cost', 0) == 1:
-                    node_costs[source_node_name] += data_transferred * cost_per_unit
+                if source_node and getattr(source_node, 'is_metered', False):                  
+                    source_node.cell_cost += data_transferred * cost_per_unit
 
+
+    def print_node_costs(self):
+        """
+        Prints the costs for each node.
+        """
         for node in self.sorted_nodes:
-            if node.name in node_costs:
-                setattr(node, 'cost', node_costs[node.name])
-
-        for node_name, cost in node_costs.items():
-            print(f"Node {node_name} cost: {cost}")
+            if hasattr(node, 'cell_cost') and node.cell_cost > 0:
+                print(f"{node.name} cost: {node.cell_cost}")

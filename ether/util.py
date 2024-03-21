@@ -1,6 +1,6 @@
 import numpy as np
 import srds
-from random import choices
+from random import choices, choice
 
 from ether.blocks.cells import IoTComputeBox, Cloudlet, Cloud, FiberToExchange, MobileConnection
 from ether.cell import GeoCell
@@ -155,15 +155,15 @@ def calculate_total_latency(path, topology):
     return total_latency
 
 
-# Function to calculate total cell_cost for a path
-# def calculate_total_cell_cost(path):
-#     total_cell_cost = 0
+# Function to calculate true total cell_cost for a path
+def calculate_total_true_cell_cost(path):
+    total_true_cell_cost = 0
 
-#     for node in path:
-#         if hasattr(node, 'cell_cost'):
-#             total_cell_cost += node.cell_cost
+    for node in path:
+        if hasattr(node, 'cell_cost'):
+            total_true_cell_cost += node.cell_cost
 
-#     return total_cell_cost
+    return total_true_cell_cost
 
 
 # Function to calculate total cell_cost for a path
@@ -175,13 +175,15 @@ def calculate_total_cell_cost(path):
     path_length = len(path)
 
     for i, node in enumerate(path):
-        if hasattr(node, 'cell_cost'):
-            # For the first and last node, add cell_cost once
-            if i == 0 or i == path_length - 1:
-                total_cell_cost += node.cell_cost
-            # For inner nodes, add cell_cost twice
-            else:
-                total_cell_cost += node.cell_cost * 2
+        # Convert cell_cost from True/False to 1/0
+        cell_cost = 1 if node.is_metered == True else 0
+
+        # For the first and last node, add cell_cost once
+        if i == 0 or i == path_length - 1:
+            total_cell_cost += cell_cost
+        # For inner nodes, add cell_cost twice
+        else:
+            total_cell_cost += cell_cost * 2
 
     return total_cell_cost
 
@@ -222,8 +224,8 @@ def is_edge_node(node: Node) -> bool:
 
 
 def is_power_node(node):
-    power_node_models = {'server', 'vm'}
-    return node.labels.get('ether.edgerun.io/model') in power_node_models
+    power_node_types = {'server', 'cloud_server'}
+    return node.labels.get('ether.edgerun.io/type') in power_node_types
 
 
 def is_regular_node(node):
@@ -234,3 +236,38 @@ def is_regular_node(node):
 def is_constrained_node(node):
     constrained_node_models = {'rpi3b+'}
     return node.labels.get('ether.edgerun.io/model') in constrained_node_models
+
+
+def generate_random_source_destination_pairs(nodes, num_pairs):
+    random_pairs = []
+    for _ in range(num_pairs):
+        source_node = choice(nodes)
+        destination_node = choice(nodes)
+        random_pairs.append((source_node, destination_node))
+    return random_pairs
+
+
+def generate_random_source_all_pairs(nodes):
+    """
+    Create a list of pairs from a random source to all nodes excluding itself
+    """
+    source_node = choice(nodes)
+    source_all_pairs = [(source_node, destination_node) for destination_node in nodes if destination_node != source_node]
+    return source_all_pairs
+
+
+def generate_all_to_all_pairs(nodes):
+    all_pairs = []
+    for source_node in nodes:
+        for destination_node in nodes:
+            if source_node != destination_node:
+                all_pairs.append((source_node, destination_node))
+    return all_pairs
+
+
+def print_all_node_properties(nodes):
+    for node in nodes:
+        print(f"Node: {node.name}")
+        for key, value in vars(node).items():
+            print(f"  {key}: {value}")
+        print()

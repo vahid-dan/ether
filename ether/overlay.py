@@ -70,9 +70,9 @@ class SymphonyOverlay:
         sorted_switch_nodes = sorted(switch_nodes, key=lambda x: x.symphony_id)
         num_switch_nodes = len(sorted_switch_nodes)
         selection_size_factor = round(math.log2(num_switch_nodes))
-        power_max_num_links = round(math.log2(num_switch_nodes)) // 2
-        regular_max_num_links = round(math.log2(num_switch_nodes)) // 4
-        constrained_max_num_links = round(math.log2(num_switch_nodes)) // 4
+        power_max_num_links = round(math.log2(num_switch_nodes)) * 2
+        regular_max_num_links = 2
+        constrained_max_num_links = 1
         total_iterations = int(num_switch_nodes * regular_max_num_links * selection_size_factor / 2)
         max_total_links = float('inf')
         total_links_created = 0
@@ -217,7 +217,6 @@ class SymphonyOverlay:
         if target_node != destination_node:
             path.append(destination_node)
 
-        print(f"path {path}")
         return path
 
 
@@ -231,13 +230,10 @@ class SymphonyOverlay:
         # Randomly select nodes for random cost assignment
         metered_edge_nodes = random.sample(edge_nodes, num_metered_edge_nodes) if edge_nodes else []
         
-        # Assign random cost to selected nodes and 0 to others
+        # Mark nodes as metered or not
         for node in self.nodes:
-            if node in metered_edge_nodes:
-                # node.cell_cost = random.uniform(0, 1)
-                node.cell_cost = 1
-            else:
-                node.cell_cost = 0
+            node.is_metered = node in metered_edge_nodes
+            node.cell_cost = 0
 
 
     def calculate_total_long_distance_metrics(self, topology):
@@ -250,27 +246,32 @@ class SymphonyOverlay:
         return total_latency, total_cost
 
 
-    def remove_links_from_pendant_nodes(self):
+    def discover_pendant_nodes(self):
+        pendant_nodes = []
         for node in self.nodes:
-            linked_nodes = {}
             if is_constrained_node(node):
                 node.role = 'pendant'
-                # Collect all nodes linked to the constrained node
-                linked_nodes = set(node.successor_links + node.predecessor_links + node.long_distance_links)
-                
-                # Clear links from the constrained node
-                node.successor_links.clear()
-                node.predecessor_links.clear()
-                node.long_distance_links.clear()
-                
-                # Remove the constrained node from the link lists of linked nodes
-                for linked_node in linked_nodes:
-                    if node in linked_node.successor_links:
-                        linked_node.successor_links.remove(node)
-                    if node in linked_node.predecessor_links:
-                        linked_node.predecessor_links.remove(node)
-                    if node in linked_node.long_distance_links:
-                        linked_node.long_distance_links.remove(node)
+                pendant_nodes.append(node)
+        return pendant_nodes
+
+
+    def remove_links_from_pendant_nodes(self, pendant_nodes):
+        if not pendant_nodes:
+            return None
+        
+        for node in pendant_nodes:
+            linked_nodes = set(node.successor_links + node.predecessor_links + node.long_distance_links)
+            
+            # Clear links from the pendant node
+            node.successor_links.clear()
+            node.predecessor_links.clear()
+            node.long_distance_links.clear()
+            
+            # Remove the pendant node from the link lists of linked nodes
+            for linked_node in linked_nodes:
+                linked_node.successor_links = [ln for ln in linked_node.successor_links if ln != node]
+                linked_node.predecessor_links = [ln for ln in linked_node.predecessor_links if ln != node]
+                linked_node.long_distance_links = [ln for ln in linked_node.long_distance_links if ln != node]
         
         print(f"linked_nodes {linked_nodes}")
         return linked_nodes
@@ -317,3 +318,24 @@ class SymphonyOverlay:
             # Update the routing table to reflect the bridge link for pendant nodes
             # This maps the pendant node to its accessible switch node for all nodes in the network
             node.routing_table[pendant_node] = switch_node
+
+
+    def soft_reset(self):
+        """
+        Reset node role, links, and routing table. Keep symphony_id and cell_cost.
+        """
+        for node in self.nodes:
+            node.role = 'switch'
+            node.routing_table.clear()
+            node.successor_links.clear()
+            node.predecessor_links.clear()
+            node.long_distance_links.clear()
+            node.bridge_links.clear()
+
+
+    def measure_total_network_cell_cost(self):
+        total_cost = 0
+        for node in self.nodes:
+            total_cost += node.cell_cost
+        return total_cost
+    

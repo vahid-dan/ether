@@ -62,7 +62,7 @@ def print_symphony_structure(symphony_overlay: SymphonyOverlay):
         print("-" * 50)
 
 
-def visualize_symphony_structure(topology: Topology):
+def visualize_symphony_structure(topology: Topology, file_path):
     G = nx.DiGraph()
 
     # Add nodes to the graph and sort by Symphony ID
@@ -122,20 +122,18 @@ def visualize_symphony_structure(topology: Topology):
     nx.draw_networkx_labels(G, pos_labels, font_size=10)
 
     plt.title("Symphony Overlay Visualization")
-    file_path = "results/symphony_overlay_visualization.png"
-    plt.savefig(file_path)
+    plt.savefig(f"{file_path}/symphony_overlay_visualization.png")
     plt.show()
 
 
-def visualize_topology(topology: Topology):
+def visualize_topology(topology: Topology, file_path):
     draw_basic(topology)
     fig = plt.gcf()
     fig.set_size_inches(10, 10)
-    file_path = "results/topology_visualization.png"
     directory = os.path.dirname(file_path)
 
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    plt.savefig(file_path)
+    plt.savefig(f"{file_path}/topology_visualization.png")
     plt.show()
